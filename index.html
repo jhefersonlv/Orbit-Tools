@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orbit Tools — Ferramentas para Pequenos Empresários</title>
+  <meta name="description"
+    content="Ferramentas gratuitas para pequenos empresários. Calcule KM, markup, custos e muito mais." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web@2.1.1/src/index.js" defer></script>
+
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+
+<body>
+
+  <!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-header sidebar-header--mobile-only">
+      <button class="sidebar-close" id="sidebar-close" aria-label="Fechar menu">
+        <i class="ph ph-x"></i>
+      </button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-tool="km-calc" onclick="loadTool('km-calc', this)">
+        <i class="ph ph-car"></i>
+        <span>Calculadora de KM</span>
+      </a>
+      <div class="nav-item nav-item--soon">
+        <i class="ph ph-tag"></i>
+        <span>Markup de Preços</span>
+        <span class="nav-badge">Em breve</span>
+      </div>
+      <div class="nav-item nav-item--soon">
+        <i class="ph ph-scales"></i>
+        <span>Custo CLT x PJ</span>
+        <span class="nav-badge">Em breve</span>
+      </div>
+      <div class="nav-item nav-item--soon">
+        <i class="ph ph-chart-line-up"></i>
+        <span>Ponto de Equilíbrio</span>
+        <span class="nav-badge">Em breve</span>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-footer-brand">
+        <i class="ph ph-circle-dashed"></i>
+        <span>Orbit · WordVirtua</span>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ═══════════════════════ OVERLAY (mobile) ═══════════════════════ -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- ═══════════════════════ MAIN ═══════════════════════ -->
+  <div class="main-wrap" id="main-wrap">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="sidebar-brand">
+          <img class="logo" src="assets/img/logo.png" alt="Orbit Tools" />
+        </div>
+        <button class="hamburger" id="hamburger" onclick="openSidebar()" aria-label="Abrir menu">
+          <i class="ph ph-list"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- CONTENT AREA -->
+    <main class="content" id="content-area">
+
+      <!-- ══════════════════ TOOL: CALCULADORA DE KM ══════════════════ -->
+      <div class="tool-view" id="tool-km-calc">
+
+        <!-- Cabeçalho fixo da ferramenta -->
+        <div class="tool-header">
+          <div class="tool-header-left">
+            <h1 class="tool-title">Calculadora de KM</h1>
+            <nav class="breadcrumb-mini">
+              <a href="#">Início</a>
+              <i class="ph ph-caret-right"></i>
+              <span class="breadcrumb-current-mini" id="km-breadcrumb">Calculadora</span>
+            </nav>
+          </div>
+          <div class="tool-header-right">
+            <nav class="pill-nav" role="tablist">
+              <button class="pill-item active" role="tab" aria-selected="true" onclick="switchKmTab('calc', this)">
+                Calculadora
+              </button>
+              <button class="pill-item" role="tab" aria-selected="false" onclick="switchKmTab('history', this)">
+                Histórico
+                <span class="pill-badge" id="history-badge" hidden></span>
+              </button>
+              <button class="pill-item" role="tab" aria-selected="false" onclick="switchKmTab('settings', this)">
+                Ajustes
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        <!-- ── PAINEL: CALCULADORA ── -->
+        <div class="tab-panel" id="panel-calc">
+          <p class="tool-desc">Saiba exatamente quanto cobrar do cliente pelo seu deslocamento e quanto vai sair do seu
+            bolso.</p>
+
+          <div class="tool-body">
+
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-map-pin"></i> Trajeto</h2>
+
+              <div class="form-grid form-grid--2">
+                <div class="form-field">
+                  <label for="origin">Endereço de Partida</label>
+                  <div class="input-icon-wrap">
+                    <i class="ph ph-map-pin-simple"></i>
+                    <input type="text" id="origin" placeholder="Ex: Mogi das Cruzes, SP" />
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label for="destination">Endereço de Destino</label>
+                  <div class="input-icon-wrap">
+                    <i class="ph ph-map-pin-simple-area"></i>
+                    <input type="text" id="destination" placeholder="Ex: São Paulo, SP" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-grid form-grid--2">
+                <div class="form-field">
+                  <label for="distance">Distância de Ida <span class="label-unit">(km)</span></label>
+                  <input type="number" id="distance" placeholder="0" min="0" step="0.1" />
+                </div>
+                <div class="form-field form-field--center">
+                  <label>Tipo de Trajeto</label>
+                  <label class="toggle-row">
+                    <div class="toggle-switch-ui" id="roundtrip-toggle" role="switch" aria-checked="false" tabindex="0"
+                      onclick="toggleRoundtrip()" onkeydown="if(event.key==='Enter'||event.key===' ')toggleRoundtrip()">
+                      <span class="toggle-thumb-ui"></span>
+                    </div>
+                    <span class="toggle-label-text" id="roundtrip-label">Somente Ida</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="km-preview" id="km-preview" hidden>
+                <i class="ph ph-arrows-left-right"></i>
+                <span>Distância total: <strong id="km-preview-val">—</strong></span>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-gas-pump"></i> Veículo e Combustível</h2>
+
+              <div class="form-grid form-grid--2">
+                <div class="form-field">
+                  <label for="consumption">
+                    Consumo Médio <span class="label-unit">(km/L)</span>
+                  </label>
+                  <input type="number" id="consumption" value="10" min="1" step="0.1" />
+                  <p class="field-hint">Média do seu veículo no trajeto</p>
+                </div>
+                <div class="form-field">
+                  <label for="fuel-price">
+                    Preço do Combustível <span class="label-unit">(R$/L)</span>
+                  </label>
+                  <div class="input-currency">
+                    <span>R$</span>
+                    <input type="number" id="fuel-price" value="5.80" min="0" step="0.01" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-currency-dollar"></i> Cobrança ao Cliente</h2>
+
+              <div class="form-field">
+                <label for="rate-per-km">
+                  Valor cobrado por KM <span class="label-unit">(R$/km)</span>
+                  <button class="btn-info-km" type="button"
+                    onclick="switchKmTab('settings', document.querySelectorAll('.pill-item')[2])"
+                    aria-label="Entenda como calcular o valor por km">
+                    <i class="ph ph-info"></i>
+                  </button>
+                </label>
+                <div class="input-currency">
+                  <span>R$</span>
+                  <input type="number" id="rate-per-km" value="2.10" min="0" step="0.01" />
+                </div>
+                <p class="field-hint">
+                  <i class="ph ph-lightbulb"></i>
+                  Este valor cobre combustível, manutenção, pneus, seguro e depreciação.
+                  Clique em <strong><i class="ph ph-info"></i></strong> ou vá em
+                  <strong>Ajustes</strong> para personalizar.
+                </p>
+              </div>
+
+              <button class="btn-calc" onclick="calcularKM()">
+                <i class="ph ph-calculator"></i>
+                Calcular
+              </button>
+            </div>
+
+            <!-- RESULTS -->
+            <div class="results-area" id="results-area" hidden>
+              <div class="results-header">
+                <i class="ph ph-check-circle"></i>
+                <h2>Resultado do Cálculo</h2>
+              </div>
+
+              <div class="results-grid">
+                <div class="result-card result-card--cost">
+                  <div class="result-card-icon"><i class="ph ph-gas-pump"></i></div>
+                  <div class="result-card-body">
+                    <span class="result-label">Custo Real</span>
+                    <span class="result-sublabel">O que sai do seu bolso em combustível</span>
+                    <strong class="result-value" id="result-cost">R$ 0,00</strong>
+                  </div>
+                </div>
+
+                <div class="result-card result-card--charge">
+                  <div class="result-card-icon"><i class="ph ph-receipt"></i></div>
+                  <div class="result-card-body">
+                    <span class="result-label">Sugestão de Cobrança</span>
+                    <span class="result-sublabel">Valor a incluir no orçamento do cliente</span>
+                    <strong class="result-value" id="result-charge">R$ 0,00</strong>
+                  </div>
+                </div>
+
+                <div class="result-card result-card--profit">
+                  <div class="result-card-icon"><i class="ph ph-trend-up"></i></div>
+                  <div class="result-card-body">
+                    <span class="result-label">Lucro no Deslocamento</span>
+                    <span class="result-sublabel">O que sobra depois de pagar o combustível</span>
+                    <strong class="result-value" id="result-profit">R$ 0,00</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="results-summary" id="results-summary"></div>
+
+              <div class="results-footer-actions">
+                <button class="btn-reset" onclick="resetCalc()">
+                  <i class="ph ph-arrow-counter-clockwise"></i> Novo Cálculo
+                </button>
+                <button class="btn-save-history" onclick="saveToHistory()">
+                  <i class="ph ph-bookmark-simple"></i> Salvar no Histórico
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ── PAINEL: HISTÓRICO ── -->
+        <div class="tab-panel hidden" id="panel-history">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title"><i class="ph ph-clock-clockwise"></i> Histórico de Cálculos</h2>
+              <p class="panel-subtitle">Seus últimos cálculos salvos nesta sessão.</p>
+            </div>
+            <button class="btn-clear-history" onclick="clearHistory()">
+              <i class="ph ph-trash"></i> Limpar
+            </button>
+          </div>
+
+          <div id="history-list">
+            <!-- preenchido pelo JS -->
+          </div>
+        </div>
+
+        <!-- ── PAINEL: AJUSTES ── -->
+        <div class="tab-panel hidden" id="panel-settings">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title"><i class="ph ph-sliders"></i> Ajustes — Valor por KM</h2>
+              <p class="panel-subtitle">Entenda como o valor é calculado e personalize de acordo com a sua realidade.
+              </p>
+            </div>
+          </div>
+
+          <!-- Explicações -->
+          <div class="card">
+            <h2 class="card-title"><i class="ph ph-book-open"></i> Como calcular cada componente</h2>
+
+            <div class="km-explanations">
+
+              <div class="km-explain-item">
+                <div class="km-explain-num">1</div>
+                <div class="km-explain-content">
+                  <h3>Combustível <span class="explain-tag">O gasto imediato</span></h3>
+                  <p>É a parte mais óbvia, mas precisa ser calculada com precisão.</p>
+                  <div class="formula-wrap">
+                    <div class="formula">
+                      <div class="formula-frac">
+                        <span class="formula-num">Preço do Litro</span>
+                        <span class="formula-den">Consumo Médio (km/L)</span>
+                      </div>
+                      <span class="formula-equals">= custo por km</span>
+                    </div>
+                    <p class="formula-example">Ex: R$ 6,00 ÷ 10 km/L = <strong>R$ 0,60/km</strong></p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="km-explain-item">
+                <div class="km-explain-num">2</div>
+                <div class="km-explain-content">
+                  <h3>Pneus <span class="explain-tag">O gasto invisível</span></h3>
+                  <p>Pneus têm vida útil (geralmente 40.000 a 50.000 km). Cada KM rodado consome um "pedaço" do pneu.
+                  </p>
+                  <div class="formula-wrap">
+                    <div class="formula">
+                      <div class="formula-frac">
+                        <span class="formula-num">Preço do Jogo de 4 Pneus</span>
+                        <span class="formula-den">Vida Útil Estimada (km)</span>
+                      </div>
+                      <span class="formula-equals">= custo por km</span>
+                    </div>
+                    <p class="formula-example">Ex: R$ 1.600 ÷ 40.000 km = <strong>R$ 0,04/km</strong></p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="km-explain-item">
+                <div class="km-explain-num">3</div>
+                <div class="km-explain-content">
+                  <h3>Manutenção Preventiva <span class="explain-tag">Óleo, filtros, freios</span></h3>
+                  <p>Tudo que você troca periodicamente deve ser rateado por KM.</p>
+                  <div class="formula-wrap">
+                    <div class="formula">
+                      <div class="formula-frac">
+                        <span class="formula-num">Custo da Revisão</span>
+                        <span class="formula-den">Intervalo da Revisão (km)</span>
+                      </div>
+                      <span class="formula-equals">= custo por km</span>
+                    </div>
+                    <p class="formula-example">Ex: R$ 800 ÷ 10.000 km = <strong>R$ 0,08/km</strong></p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="km-explain-item">
+                <div class="km-explain-num">4</div>
+                <div class="km-explain-content">
+                  <h3>Depreciação <span class="explain-tag">A desvalorização do patrimônio</span></h3>
+                  <p>Quanto mais km, menos o carro vale na hora da venda. Uma estimativa segura para carros de
+                    entrada/médios é de <strong>R$ 0,30 a R$ 0,50/km</strong>.</p>
+                  <div class="formula-wrap">
+                    <div class="formula">
+                      <div class="formula-frac">
+                        <span class="formula-num">Valor de Compra − Valor de Revenda</span>
+                        <span class="formula-den">KM totais rodados no período</span>
+                      </div>
+                      <span class="formula-equals">= custo por km</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="km-explain-item">
+                <div class="km-explain-num">5</div>
+                <div class="km-explain-content">
+                  <h3>Custos Fixos Proporcionais <span class="explain-tag">Seguro e IPVA</span></h3>
+                  <p>Mesmo que o carro fique parado, você paga. Se você usa o carro para trabalhar, o trabalho deve
+                    "pagar" a parte dele.</p>
+                  <div class="formula-wrap">
+                    <div class="formula">
+                      <div class="formula-frac">
+                        <span class="formula-num">IPVA + Seguro (Anual)</span>
+                        <span class="formula-den">KM total rodado no ano</span>
+                      </div>
+                      <span class="formula-equals">= custo por km</span>
+                    </div>
+                    <p class="formula-example">Ex: R$ 4.000 ÷ 20.000 km = <strong>R$ 0,20/km</strong></p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Tabela personalizável -->
+          <div class="card">
+            <h2 class="card-title"><i class="ph ph-pencil-simple"></i> Personalize seu custo por km</h2>
+            <p class="config-desc">Edite cada valor de acordo com a sua realidade. O total é calculado automaticamente.
+            </p>
+
+            <table class="km-table" id="km-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Valor por KM</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="km-table-item-name"><i class="ph ph-gas-pump"></i> Combustível</span></td>
+                  <td>
+                    <div class="km-table-input-wrap">
+                      <span>R$</span>
+                      <input type="number" class="km-item-input" id="ki-fuel" value="0.65" min="0" step="0.01"
+                        oninput="recalcKmTable()" />
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="km-table-item-name"><i class="ph ph-tire"></i> Pneus e Freios</span></td>
+                  <td>
+                    <div class="km-table-input-wrap">
+                      <span>R$</span>
+                      <input type="number" class="km-item-input" id="ki-tires" value="0.06" min="0" step="0.01"
+                        oninput="recalcKmTable()" />
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="km-table-item-name"><i class="ph ph-wrench"></i> Manutenção (Óleo/Filtros)</span>
+                  </td>
+                  <td>
+                    <div class="km-table-input-wrap">
+                      <span>R$</span>
+                      <input type="number" class="km-item-input" id="ki-maintenance" value="0.10" min="0" step="0.01"
+                        oninput="recalcKmTable()" />
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="km-table-item-name"><i class="ph ph-shield-check"></i> Seguro e IPVA</span></td>
+                  <td>
+                    <div class="km-table-input-wrap">
+                      <span>R$</span>
+                      <input type="number" class="km-item-input" id="ki-insurance" value="0.25" min="0" step="0.01"
+                        oninput="recalcKmTable()" />
+                    </div>
+                  </td>
+                </tr>
+                <tr class="km-table-subtotal">
+                  <td><strong>Subtotal (Custo de Operação)</strong></td>
+                  <td><strong id="ki-subtotal">R$ 1,06</strong></td>
+                </tr>
+                <tr>
+                  <td><span class="km-table-item-name"><i class="ph ph-trend-down"></i> Margem de Depreciação</span>
+                  </td>
+                  <td>
+                    <div class="km-table-input-wrap">
+                      <span>R$</span>
+                      <input type="number" class="km-item-input" id="ki-depreciation" value="0.40" min="0" step="0.01"
+                        oninput="recalcKmTable()" />
+                    </div>
+                  </td>
+                </tr>
+                <tr class="km-table-total">
+                  <td><strong>Custo Real de Saída</strong></td>
+                  <td><strong id="ki-total">R$ 1,46</strong></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="km-table-actions">
+              <button class="btn-km-reset" onclick="resetKmTable()" type="button">
+                <i class="ph ph-arrow-counter-clockwise"></i> Restaurar padrões
+              </button>
+              <button class="btn-km-apply" onclick="applyKmRate()" type="button">
+                <i class="ph ph-check"></i> Usar este valor na calculadora
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ══════════════════ PLACEHOLDER: EM BREVE ══════════════════ -->
+      <div class="tool-view hidden" id="tool-coming-soon">
+        <div class="tool-header">
+          <div class="tool-header-left">
+            <h1 class="tool-title">Em Breve</h1>
+            <nav class="breadcrumb-mini">
+              <a href="#">Início</a>
+              <i class="ph ph-caret-right"></i>
+              <span class="breadcrumb-current-mini">Ferramenta</span>
+            </nav>
+          </div>
+        </div>
+        <div class="coming-soon-wrap">
+          <div class="coming-soon-icon"><i class="ph ph-clock"></i></div>
+          <h2>Em breve</h2>
+          <p>Esta ferramenta está sendo desenvolvida. Fique de olho nas novidades da Orbit!</p>
+          <a href="#" onclick="loadTool('km-calc', document.querySelector('[data-tool=km-calc]'))" class="btn-back">
+            <i class="ph ph-arrow-left"></i> Voltar para Calculadora de KM
+          </a>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Firebase SDK (estrutura inicial) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="assets/js/script.js"></script>
+
+</body>
+
+</html>
