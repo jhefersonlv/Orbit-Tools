@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Orbit Tools</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/@phosphor-icons/web@2.1.1/src/index.js" defer></script>
+
+  <style>
+    :root {
+      --c-blue:    #223B71;
+      --c-blue-lt: #e8eef9;
+      --c-bg:      #f1f5f9;
+      --c-surface: #ffffff;
+      --c-border:  #e2e8f0;
+      --c-dark:    #0f172a;
+      --c-mid:     #64748b;
+      --c-light:   #94a3b8;
+      --c-green:   #10b981;
+      --c-green-lt:#d1fae5;
+      --c-red:     #ef4444;
+      --c-red-lt:  #fee2e2;
+      --c-amber:   #f59e0b;
+      --c-amber-lt:#fef3c7;
+      --white:     #ffffff;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
+      --shadow-md: 0 4px 16px rgba(0,0,0,.08);
+      --font: 'Lexend', -apple-system, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      font-size: .925rem;
+      background: var(--c-bg);
+      color: var(--c-dark);
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    a { text-decoration: none; color: inherit; }
+    button { font-family: var(--font); cursor: pointer; }
+
+    /* ── AUTH GUARD ── */
+    #auth-guard {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 16px;
+      padding: 24px;
+      text-align: center;
+    }
+    #auth-guard i { font-size: 3rem; color: var(--c-light); }
+    #auth-guard h2 { font-size: 1.1rem; color: var(--c-dark); }
+    #auth-guard p  { font-size: .875rem; color: var(--c-mid); }
+    .btn-google-admin {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 20px;
+      background: var(--c-surface);
+      border: 1.5px solid var(--c-border);
+      border-radius: var(--radius-sm);
+      font-size: .9rem; font-weight: 500;
+      transition: background .15s;
+    }
+    .btn-google-admin:hover { background: var(--c-bg); }
+    .btn-google-admin img { width: 18px; height: 18px; }
+    .auth-guard-error {
+      color: var(--c-red); font-size: .85rem;
+      background: var(--c-red-lt);
+      padding: 10px 16px; border-radius: var(--radius-sm);
+      display: none;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--white);
+      border-bottom: 1px solid var(--c-border);
+      padding: 0 28px;
+      height: 60px;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .topbar-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1rem; color: var(--c-dark); }
+    .topbar-badge { background: var(--c-blue); color: var(--white); font-size: .65rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; letter-spacing: .04em; }
+    .topbar-user  { display: flex; align-items: center; gap: 10px; font-size: .85rem; color: var(--c-mid); }
+    .btn-logout {
+      display: flex; align-items: center; gap: 6px;
+      background: none; border: 1px solid var(--c-border);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px; font-size: .84rem; color: var(--c-mid);
+      transition: border-color .15s, color .15s;
+    }
+    .btn-logout:hover { border-color: var(--c-red); color: var(--c-red); }
+
+    /* ── LAYOUT ── */
+    .admin-wrap { max-width: 1280px; margin: 0 auto; padding: 28px 24px; }
+
+    /* ── PAGE HEADER ── */
+    .page-header { margin-bottom: 24px; }
+    .page-header h1 { font-size: 1.35rem; font-weight: 700; }
+    .page-header p  { font-size: .875rem; color: var(--c-mid); margin-top: 3px; }
+
+    /* ── STATS ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+    }
+    .stat-label { font-size: .78rem; font-weight: 500; color: var(--c-mid); text-transform: uppercase; letter-spacing: .04em; }
+    .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--c-dark); margin-top: 4px; }
+    .stat-card--orbit .stat-value { color: var(--c-blue); }
+    .stat-card--green .stat-value { color: var(--c-green); }
+
+    /* ── TOOLBAR ── */
+    .toolbar {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .search-wrap {
+      position: relative; flex: 1; min-width: 200px;
+    }
+    .search-wrap i {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      color: var(--c-light); font-size: 1rem; pointer-events: none;
+    }
+    .search-input {
+      width: 100%; padding: 9px 12px 9px 34px;
+      border: 1px solid var(--c-border); border-radius: var(--radius-sm);
+      font-family: var(--font); font-size: .875rem;
+      background: var(--c-surface); color: var(--c-dark);
+      transition: border-color .15s;
+    }
+    .search-input:focus { outline: none; border-color: var(--c-blue); }
+
+    .filter-select {
+      padding: 9px 12px;
+      border: 1px solid var(--c-border); border-radius: var(--radius-sm);
+      font-family: var(--font); font-size: .875rem;
+      background: var(--c-surface); color: var(--c-dark);
+      cursor: pointer;
+    }
+
+    .btn-export {
+      display: flex; align-items: center; gap: 6px;
+      padding: 9px 14px;
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius-sm);
+      font-size: .875rem; font-weight: 500; color: var(--c-dark);
+      white-space: nowrap;
+      transition: background .15s;
+    }
+    .btn-export:hover { background: var(--c-bg); }
+
+    /* ── TABLE ── */
+    .table-wrap {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .admin-table { width: 100%; border-collapse: collapse; }
+    .admin-table th {
+      background: var(--c-bg);
+      padding: 10px 16px;
+      text-align: left;
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--c-mid);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      border-bottom: 1px solid var(--c-border);
+      white-space: nowrap;
+    }
+    .admin-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--c-border);
+      font-size: .875rem;
+      vertical-align: middle;
+    }
+    .admin-table tr:last-child td { border-bottom: none; }
+    .admin-table tr:hover td { background: #fafbfc; }
+
+    .user-cell { display: flex; align-items: center; gap: 10px; }
+    .user-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: var(--c-blue); color: var(--white);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .72rem; font-weight: 700; flex-shrink: 0;
+    }
+    .user-name  { font-weight: 600; color: var(--c-dark); }
+    .user-email { font-size: .78rem; color: var(--c-mid); }
+
+    .td-muted { color: var(--c-mid); }
+    .td-muted i { margin-right: 4px; }
+
+    .plan-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 20px;
+      font-size: .75rem; font-weight: 600;
+    }
+    .plan-badge--free  { background: var(--c-amber-lt); color: #92400e; }
+    .plan-badge--orbit { background: var(--c-blue-lt);  color: var(--c-blue); }
+
+    .onboarding-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: .78rem; font-weight: 500;
+    }
+    .onboarding-badge--done    { color: var(--c-green); }
+    .onboarding-badge--pending { color: var(--c-amber); }
+
+    /* ── EMPTY / LOADING ── */
+    .table-status {
+      text-align: center; padding: 48px 20px;
+      color: var(--c-mid); font-size: .9rem;
+    }
+    .table-status i { font-size: 2rem; display: block; margin-bottom: 8px; color: var(--c-light); }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinning { display: inline-block; animation: spin .7s linear infinite; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .topbar { padding: 0 16px; }
+      .admin-wrap { padding: 20px 16px; }
+      .admin-table th:nth-child(4),
+      .admin-table td:nth-child(4),
+      .admin-table th:nth-child(5),
+      .admin-table td:nth-child(5) { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══════════════ TELA DE AUTENTICAÇÃO ══════════════ -->
+  <div id="auth-guard">
+    <i class="ph ph-shield-check"></i>
+    <h2>Orbit Tools — Admin</h2>
+    <p>Acesso restrito. Entre com a conta de administrador.</p>
+    <button class="btn-google-admin" onclick="adminLoginGoogle()">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
+      Entrar com Google
+    </button>
+    <div class="auth-guard-error" id="admin-auth-error"></div>
+  </div>
+
+  <!-- ══════════════ PAINEL PRINCIPAL ══════════════ -->
+  <div id="admin-panel" hidden>
+
+    <header class="topbar">
+      <div class="topbar-brand">
+        <i class="ph ph-circle-dashed"></i>
+        Orbit Tools
+        <span class="topbar-badge">ADMIN</span>
+      </div>
+      <div class="topbar-user">
+        <span id="admin-user-name"></span>
+        <button class="btn-logout" onclick="adminLogout()">
+          <i class="ph ph-sign-out"></i> Sair
+        </button>
+      </div>
+    </header>
+
+    <div class="admin-wrap">
+
+      <div class="page-header">
+        <h1>Usuários cadastrados</h1>
+        <p>Todos os usuários que criaram conta no Orbit Tools.</p>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total de usuários</div>
+          <div class="stat-value" id="stat-total">—</div>
+        </div>
+        <div class="stat-card stat-card--green">
+          <div class="stat-label">Perfil completo</div>
+          <div class="stat-value" id="stat-onboarded">—</div>
+        </div>
+        <div class="stat-card stat-card--orbit">
+          <div class="stat-label">Assinantes Orbit</div>
+          <div class="stat-value" id="stat-orbit">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Plano gratuito</div>
+          <div class="stat-value" id="stat-free">—</div>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="search-wrap">
+          <i class="ph ph-magnifying-glass"></i>
+          <input type="text" class="search-input" id="admin-search"
+            placeholder="Buscar por nome, e-mail, profissão..." oninput="filterUsers()" />
+        </div>
+        <select class="filter-select" id="admin-filter-plan" onchange="filterUsers()">
+          <option value="">Todos os planos</option>
+          <option value="free">Gratuito</option>
+          <option value="orbit">Orbit</option>
+        </select>
+        <select class="filter-select" id="admin-filter-onboarding" onchange="filterUsers()">
+          <option value="">Todos os perfis</option>
+          <option value="done">Perfil completo</option>
+          <option value="pending">Perfil incompleto</option>
+        </select>
+        <button class="btn-export" onclick="exportCSV()">
+          <i class="ph ph-download-simple"></i> Exportar CSV
+        </button>
+      </div>
+
+      <!-- Tabela -->
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Usuário</th>
+              <th>WhatsApp</th>
+              <th>Profissão / Empresa</th>
+              <th>Cadastro</th>
+              <th>Plano</th>
+              <th>Perfil</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody">
+            <tr>
+              <td colspan="6" class="table-status">
+                <i class="ph ph-circle-notch spinning"></i>
+                Carregando usuários...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="assets/js/firebase-config.js"></script>
+  <script src="assets/js/admin.js"></script>
+
+</body>
+</html>

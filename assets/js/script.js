@@ -5,19 +5,7 @@
 
 'use strict';
 
-/* ─── FIREBASE (estrutura inicial) ───────────────────────────── */
-/*
-const FIREBASE_CONFIG = {
-  apiKey:            "...",
-  authDomain:        "....firebaseapp.com",
-  projectId:         "...",
-  storageBucket:     "....appspot.com",
-  messagingSenderId: "...",
-  appId:             "..."
-};
-firebase.initializeApp(FIREBASE_CONFIG);
-const db = firebase.firestore();
-*/
+/* ─── FIREBASE — inicializado em firebase-config.js ─────────── */
 
 /* ═══════════════════════════════════════════════════════════════
    SIDEBAR
@@ -193,6 +181,16 @@ function resetCalc() {
   });
 });
 
+/* ─── Salva settings ao alterar consumo/combustível/taxa ──────── */
+['consumption','fuel-price','rate-per-km'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    clearTimeout(_settingsSaveTimer);
+    _settingsSaveTimer = setTimeout(() => {
+      if (typeof saveKmSettingsToFirestore === 'function') saveKmSettingsToFirestore();
+    }, 1500);
+  });
+});
+
 /* ═══════════════════════════════════════════════════════════════
    HISTÓRICO
    ═══════════════════════════════════════════════════════════════ */
@@ -205,6 +203,24 @@ function saveToHistory() {
   const entry = { ..._lastCalc, id: Date.now(), savedAt: new Date() };
   kmHistory.unshift(entry);   // mais recente primeiro
   _lastCalc = null;
+
+  /* Persiste no Firestore se logado */
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    db.collection('users').doc(currentUser.uid).collection('km_history').add({
+      origin:      entry.origin,
+      destination: entry.destination,
+      totalKm:     entry.totalKm,
+      tripLabel:   entry.tripLabel,
+      realCost:    entry.realCost,
+      charge:      entry.charge,
+      profit:      entry.profit,
+      ratePerKm:   entry.ratePerKm,
+      consumption: entry.consumption,
+      fuelPrice:   entry.fuelPrice,
+      savedAt:     firebase.firestore.FieldValue.serverTimestamp(),
+      expiresAt:   new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    }).then(ref => { entry.firestoreId = ref.id; });
+  }
 
   /* Atualiza badge na pill */
   updateHistoryBadge();
@@ -229,7 +245,14 @@ function updateHistoryBadge() {
 
 function clearHistory() {
   if (kmHistory.length === 0) return;
-  if (!confirm('Limpar todo o histórico desta sessão?')) return;
+  if (!confirm('Limpar todo o histórico?')) return;
+
+  /* Deleta do Firestore se logado */
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    const col = db.collection('users').doc(currentUser.uid).collection('km_history');
+    kmHistory.forEach(e => { if (e.firestoreId) col.doc(e.firestoreId).delete(); });
+  }
+
   kmHistory = [];
   updateHistoryBadge();
   renderHistory();
@@ -257,7 +280,12 @@ function renderHistory() {
       ? `${entry.origin} → ${entry.destination}`
       : 'Trajeto sem endereço';
 
-    const time = entry.savedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const _now1  = new Date();
+    const _isToday1 = entry.savedAt.toDateString() === _now1.toDateString();
+    const time = _isToday1
+      ? entry.savedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      : entry.savedAt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' +
+        entry.savedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const profitClass = entry.profit >= 0 ? 'history-profit--pos' : 'history-profit--neg';
 
     card.innerHTML = `
@@ -298,7 +326,11 @@ function renderHistory() {
 }
 
 function deleteHistoryEntry(id) {
-  kmHistory = kmHistory.filter(e => e.id !== id);
+  const entry = kmHistory.find(e => String(e.id) === String(id));
+  if (entry && entry.firestoreId && typeof currentUser !== 'undefined' && currentUser) {
+    db.collection('users').doc(currentUser.uid).collection('km_history').doc(entry.firestoreId).delete();
+  }
+  kmHistory = kmHistory.filter(e => String(e.id) !== String(id));
   updateHistoryBadge();
   renderHistory();
 }
@@ -312,6 +344,7 @@ const KM_DEFAULTS = {
 };
 
 let _kmTotal = 1.46;
+let _settingsSaveTimer = null;
 
 function recalcKmTable() {
   const fuel         = parseFloat(document.getElementById('ki-fuel').value)         || 0;
@@ -325,6 +358,12 @@ function recalcKmTable() {
 
   document.getElementById('ki-subtotal').textContent = formatBRL(subtotal);
   document.getElementById('ki-total').textContent    = formatBRL(_kmTotal);
+
+  /* Salva settings no Firestore com debounce de 1,5s */
+  clearTimeout(_settingsSaveTimer);
+  _settingsSaveTimer = setTimeout(() => {
+    if (typeof saveKmSettingsToFirestore === 'function') saveKmSettingsToFirestore();
+  }, 1500);
 }
 
 function resetKmTable() {
@@ -338,6 +377,7 @@ function resetKmTable() {
 
 function applyKmRate() {
   document.getElementById('rate-per-km').value = _kmTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (typeof saveKmSettingsToFirestore === 'function') saveKmSettingsToFirestore();
 
   /* Volta para a aba Calculadora */
   const calcPill = document.querySelector('.pill-item');
@@ -391,8 +431,23 @@ function updateCltBadge() {
 /* ─── Salvar ─────────────────────────────────────────────────── */
 function saveToHistoryCLT() {
   if (!_lastCltCalc) return;
-  cltHistory.unshift({ ..._lastCltCalc, id: Date.now(), savedAt: new Date() });
+  const entry = { ..._lastCltCalc, id: Date.now(), savedAt: new Date() };
+  cltHistory.unshift(entry);
   _lastCltCalc = null;
+
+  /* Persiste no Firestore se logado */
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    db.collection('users').doc(currentUser.uid).collection('clt_history').add({
+      regime:   entry.regime,
+      sal:      entry.sal,
+      totalCLT: entry.totalCLT,
+      totalPJ:  entry.totalPJ,
+      diff:     entry.diff,
+      savedAt:  firebase.firestore.FieldValue.serverTimestamp(),
+      expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    }).then(ref => { entry.firestoreId = ref.id; });
+  }
+
   updateCltBadge();
 
   const btn = document.getElementById('btn-save-clt');
@@ -405,7 +460,13 @@ function saveToHistoryCLT() {
 /* ─── Limpar ─────────────────────────────────────────────────── */
 function clearHistoryCLT() {
   if (cltHistory.length === 0) return;
-  if (!confirm('Limpar todo o histórico desta sessão?')) return;
+  if (!confirm('Limpar todo o histórico?')) return;
+
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    const col = db.collection('users').doc(currentUser.uid).collection('clt_history');
+    cltHistory.forEach(e => { if (e.firestoreId) col.doc(e.firestoreId).delete(); });
+  }
+
   cltHistory = [];
   updateCltBadge();
   renderHistoryCLT();
@@ -413,7 +474,11 @@ function clearHistoryCLT() {
 
 /* ─── Deletar entrada ────────────────────────────────────────── */
 function deleteHistoryCLT(id) {
-  cltHistory = cltHistory.filter(e => e.id !== id);
+  const entry = cltHistory.find(e => String(e.id) === String(id));
+  if (entry && entry.firestoreId && typeof currentUser !== 'undefined' && currentUser) {
+    db.collection('users').doc(currentUser.uid).collection('clt_history').doc(entry.firestoreId).delete();
+  }
+  cltHistory = cltHistory.filter(e => String(e.id) !== String(id));
   updateCltBadge();
   renderHistoryCLT();
 }
@@ -436,7 +501,12 @@ function renderHistoryCLT() {
   cltHistory.forEach(entry => {
     const card = document.createElement('div');
     card.className = 'history-card';
-    const time        = entry.savedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const _now2  = new Date();
+    const _isToday2 = entry.savedAt.toDateString() === _now2.toDateString();
+    const time = _isToday2
+      ? entry.savedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      : entry.savedAt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' +
+        entry.savedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const regimeLabel = entry.regime === 'lucro' ? 'Lucro Real/Presumido' : 'Simples Nacional';
     const diffClass   = entry.diff <= 0 ? 'history-profit--pos' : 'history-profit--neg';
     const diffLabel   = entry.diff > 0 ? `CLT custa mais` : entry.diff < 0 ? `PJ custa mais` : `Custo equivalente`;
@@ -580,16 +650,20 @@ const DISPARO_PAL = [
 
 const DISPARO_TMPL = `Olá, {nome}! Tudo bem?\n\nVi você no grupo {grupo} e queria me apresentar.\n\nSou o Jheferson da WordVirtua — desenvolvemos o Orbit, um sistema de governança feito para donos de empresas de serviços que querem sair das planilhas e ter controle real do negócio.\n\nVocê teria 15 minutos para eu te mostrar? Pode ser aqui pelo WhatsApp mesmo.`;
 
-let disparoContacts = [
-  { id:1, name:'Ricardo Mendes',  company:'Mendes Reformas', segment:'Construção',  group:'IBBC',    phone:'5511991234567', status:'pending' },
-  { id:2, name:'Ana Paula Costa', company:'Costa Limpeza',   segment:'Facilities',  group:'Evolua+', phone:'5511992345678', status:'pending' },
-  { id:3, name:'Carlos Eduardo',  company:'CE Serviços',     segment:'Manutenção',  group:'IBBC',    phone:'5511993456789', status:'pending' },
-];
-let disparoSel = null;
-let disparoNid  = 4;
+const DISPARO_FREE_LIMIT = 100;
 
-const disparoInitials = n => n.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
-const disparoPal      = id => DISPARO_PAL[id % DISPARO_PAL.length];
+let disparoContacts = [];   // sem contatos de exemplo
+let disparoSel      = null;
+let disparoNid      = 1;    // fallback para usuários não logados
+
+const disparoInitials = n => (n || '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+
+/* disparoPal aceita ID numérico ou string (Firestore docId) */
+const disparoPal = id => {
+  const n = typeof id === 'number' ? id
+    : String(id).split('').reduce((h, c) => Math.imul(31, h) + c.charCodeAt(0) | 0, 0);
+  return DISPARO_PAL[Math.abs(n) % DISPARO_PAL.length];
+};
 
 function disparoUpdateStats() {
   const t = disparoContacts.length;
@@ -604,13 +678,26 @@ function disparoUpdateStats() {
 
 function disparoRenderList(list) {
   const el = document.getElementById('disparo-cl');
+
   if (!list.length) {
-    el.innerHTML = '<div class="disparo-clist-empty">Nenhum resultado</div>';
+    const hasContacts = disparoContacts.length > 0;
+    el.innerHTML = hasContacts
+      ? '<div class="disparo-clist-empty">Nenhum resultado para a busca.</div>'
+      : `<div class="disparo-clist-empty disparo-clist-empty--main">
+           <i class="ph ph-users"></i>
+           <p>Nenhum contato ainda.</p>
+           <p>Clique em <strong>Novo Contato</strong> para começar.</p>
+         </div>`;
     return;
   }
+
+  const plan = (typeof _userPlan !== 'undefined') ? _userPlan : 'free';
+  const pct  = plan !== 'orbit' ? Math.round(list.length / DISPARO_FREE_LIMIT * 100) : 0;
+
   el.innerHTML = list.map(c => {
     const [bg, fg] = disparoPal(c.id);
-    return `<div class="disparo-ci${c.id === disparoSel ? ' active' : ''}${c.status === 'sent' ? ' faded' : ''}" onclick="disparoSelectContact(${c.id})">
+    const isActive = String(c.id) === String(disparoSel);
+    return `<div class="disparo-ci${isActive ? ' active' : ''}${c.status === 'sent' ? ' faded' : ''}" onclick="disparoSelectContact('${c.id}')">
       <div class="disparo-av" style="background:${bg};color:${fg};">${disparoInitials(c.name)}</div>
       <div class="disparo-ci-info">
         <div class="disparo-ci-name">${c.name}</div>
@@ -644,17 +731,19 @@ function disparoBuildMsg(c) {
 }
 
 function disparoSelectContact(id) {
-  disparoSel = id;
-  const c = disparoContacts.find(x => x.id === id);
+  disparoSel = String(id);
+  const c = disparoContacts.find(x => String(x.id) === String(id));
   if (!c) return;
   disparoFilter();
   const [bg, fg] = disparoPal(c.id);
-  const s = disparoContacts.filter(x => x.status === 'sent').length;
-  const t = disparoContacts.length;
+  const s   = disparoContacts.filter(x => x.status === 'sent').length;
+  const t   = disparoContacts.length;
   const pct = t ? Math.round(s / t * 100) : 0;
   const statusBadge = c.status === 'sent'
     ? '<span class="disparo-badge disparo-badge--sent">Enviado</span>'
     : '<span class="disparo-badge disparo-badge--pending">Pendente</span>';
+
+  const sid = String(id);   // ID seguro para uso em template literals
 
   document.getElementById('disparo-main').innerHTML = `
     <div class="disparo-mheader">
@@ -681,9 +770,17 @@ function disparoSelectContact(id) {
       </div>
 
       <div>
-        <div class="disparo-sec-lbl">Template da mensagem</div>
+        <div class="disparo-tmpl-selector-row">
+          <span class="disparo-sec-lbl" style="margin:0;">Template</span>
+          <div class="disparo-tmpl-pills" id="disparo-tmpl-pills">
+            ${_renderTmplPills(sid)}
+          </div>
+          <button class="disparo-tmpl-manage" onclick="switchDisparoTab('templates', document.querySelectorAll('#tool-disparo .pill-item')[1])">
+            <i class="ph ph-pencil-simple"></i> Gerenciar
+          </button>
+        </div>
         <div class="disparo-tbox">
-          <textarea class="disparo-ta" id="disparo-ta" oninput="disparoLivePreview(${id})">${DISPARO_TMPL}</textarea>
+          <textarea class="disparo-ta" id="disparo-ta" oninput="disparoLivePreview('${sid}')">${DISPARO_TMPL}</textarea>
           <div class="disparo-tbar">
             <div class="disparo-var-chips">
               <button class="disparo-vc" onclick="disparoInsertVar('{nome}')">+ nome</button>
@@ -703,19 +800,19 @@ function disparoSelectContact(id) {
       </div>
 
       <div class="disparo-arow">
-        <button class="disparo-btn-whatsapp" onclick="disparoOpenWhatsApp(${id})">
+        <button class="disparo-btn-whatsapp" onclick="disparoOpenWhatsApp('${sid}')">
           <i class="ph ph-whatsapp-logo"></i> Abrir no WhatsApp
         </button>
         ${c.status !== 'sent'
-          ? `<button class="disparo-btn-success" onclick="disparoMarkSent(${id})"><i class="ph ph-check"></i> Marcar enviado</button>`
-          : `<button class="disparo-btn-ghost" onclick="disparoMarkPending(${id})"><i class="ph ph-arrow-counter-clockwise"></i> Desmarcar</button>`}
-        <button class="disparo-btn-danger" onclick="disparoRemoveContact(${id})"><i class="ph ph-trash"></i> Remover</button>
+          ? `<button class="disparo-btn-success" onclick="disparoMarkSent('${sid}')"><i class="ph ph-check"></i> Marcar enviado</button>`
+          : `<button class="disparo-btn-ghost" onclick="disparoMarkPending('${sid}')"><i class="ph ph-arrow-counter-clockwise"></i> Desmarcar</button>`}
+        <button class="disparo-btn-danger" onclick="disparoRemoveContact('${sid}')"><i class="ph ph-trash"></i> Remover</button>
       </div>
     </div>`;
 }
 
 function disparoLivePreview(id) {
-  const c = disparoContacts.find(x => x.id === id); if (!c) return;
+  const c = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
   const pb = document.getElementById('disparo-pb');
   const cc = document.getElementById('disparo-cc');
   const ta = document.getElementById('disparo-ta');
@@ -733,7 +830,7 @@ function disparoInsertVar(v) {
 }
 
 function disparoOpenWhatsApp(id) {
-  const c = disparoContacts.find(x => x.id === id); if (!c) return;
+  const c = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
   const url = 'https://api.whatsapp.com/send?phone=' + c.phone.replace(/\D/g,'') + '&text=' + encodeURIComponent(disparoBuildMsg(c));
   window.open(url, '_blank');
   disparoMarkSent(id);
@@ -741,19 +838,34 @@ function disparoOpenWhatsApp(id) {
 }
 
 function disparoMarkSent(id) {
-  const c = disparoContacts.find(x => x.id === id);
-  if (c) c.status = 'sent';
+  const c = disparoContacts.find(x => String(x.id) === String(id));
+  if (!c) return;
+  c.status = 'sent';
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
+      .update({ status: 'sent' }).catch(() => {});
+  }
   disparoUpdateStats(); disparoSelectContact(id); disparoFilter();
 }
 
 function disparoMarkPending(id) {
-  const c = disparoContacts.find(x => x.id === id);
-  if (c) c.status = 'pending';
+  const c = disparoContacts.find(x => String(x.id) === String(id));
+  if (!c) return;
+  c.status = 'pending';
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
+      .update({ status: 'pending' }).catch(() => {});
+  }
   disparoUpdateStats(); disparoSelectContact(id); disparoFilter();
 }
 
 function disparoRemoveContact(id) {
-  disparoContacts = disparoContacts.filter(c => c.id !== id);
+  if (!confirm('Remover este contato?')) return;
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
+      .delete().catch(() => {});
+  }
+  disparoContacts = disparoContacts.filter(c => String(c.id) !== String(id));
   disparoSel = null;
   document.getElementById('disparo-main').innerHTML = `
     <div class="disparo-empty">
@@ -762,6 +874,20 @@ function disparoRemoveContact(id) {
       <div class="disparo-empty-s">Selecione um contato para personalizar e disparar a mensagem pelo WhatsApp</div>
     </div>`;
   disparoUpdateStats(); disparoFilter();
+}
+
+/* ─── Troca de painel (Central / Templates) ─────────────────── */
+function switchDisparoTab(tab, el) {
+  document.querySelectorAll('#tool-disparo .pill-item').forEach(p => {
+    p.classList.remove('active');
+    p.setAttribute('aria-selected', 'false');
+  });
+  if (el) { el.classList.add('active'); el.setAttribute('aria-selected', 'true'); }
+
+  document.getElementById('panel-disparo-central').hidden   = (tab !== 'central');
+  document.getElementById('panel-disparo-templates').hidden = (tab !== 'templates');
+
+  if (tab === 'templates') renderDisparoTemplates();
 }
 
 function disparoOpenModal() {
@@ -781,15 +907,70 @@ function disparoAddContact() {
   const name  = document.getElementById('d-fn').value.trim();
   const phone = document.getElementById('d-fp').value.trim();
   if (!name || !phone) { disparoShowToast('Nome e WhatsApp são obrigatórios.', true); return; }
-  disparoContacts.push({
-    id: disparoNid++, name,
+
+  /* Verifica limite do plano free */
+  const plan = (typeof _userPlan !== 'undefined') ? _userPlan : 'free';
+  if (plan !== 'orbit' && disparoContacts.length >= DISPARO_FREE_LIMIT) {
+    disparoShowToast(`Limite de ${DISPARO_FREE_LIMIT} contatos atingido no plano gratuito.`, true);
+    return;
+  }
+
+  const contact = {
+    name,
     company:  document.getElementById('d-fc').value.trim()   || '—',
     segment:  document.getElementById('d-fseg').value.trim() || '—',
     group:    document.getElementById('d-fg').value.trim()   || '—',
-    phone, status: 'pending',
-  });
-  disparoCloseModal(); disparoUpdateStats(); disparoFilter();
-  disparoShowToast('Contato adicionado!');
+    phone,
+    status: 'pending',
+  };
+
+  disparoCloseModal();
+
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    /* Salva no Firestore — o ID do doc vira o ID do contato */
+    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').add({
+      ...contact,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    })
+    .then(ref => {
+      contact.id = ref.id;
+      disparoContacts.push(contact);
+      disparoUpdateStats();
+      disparoFilter();
+      disparoShowToast('Contato adicionado!');
+      _disparoUpdateLimitBar();
+    })
+    .catch(() => { disparoShowToast('Erro ao salvar contato.', true); });
+  } else {
+    /* Sem login — salva só localmente */
+    contact.id = disparoNid++;
+    disparoContacts.push(contact);
+    disparoUpdateStats();
+    disparoFilter();
+    disparoShowToast('Contato adicionado! Faça login para salvar permanentemente.');
+    _disparoUpdateLimitBar();
+  }
+}
+
+/* Atualiza indicador de limite na barra lateral */
+function _disparoUpdateLimitBar() {
+  const plan  = (typeof _userPlan !== 'undefined') ? _userPlan : 'free';
+  const wrap  = document.getElementById('disparo-limit-wrap');
+  const el    = document.getElementById('disparo-limit-bar');
+  const label = document.getElementById('disparo-limit-label');
+  if (!wrap || !el || !label) return;
+
+  if (plan === 'orbit') {
+    wrap.hidden = true;
+    return;
+  }
+
+  wrap.hidden = false;
+  const used = disparoContacts.length;
+  const pct  = Math.min(Math.round(used / DISPARO_FREE_LIMIT * 100), 100);
+  el.style.width       = pct + '%';
+  el.style.background  = pct >= 90 ? 'var(--c-red)' : pct >= 70 ? 'var(--c-amber)' : 'var(--c-blue)';
+  label.textContent    = `${used} / ${DISPARO_FREE_LIMIT} contatos`;
 }
 
 function disparoShowToast(msg, err = false) {
@@ -803,6 +984,242 @@ function disparoShowToast(msg, err = false) {
 /* Inicializa ao carregar */
 disparoUpdateStats();
 disparoFilter();
+
+/* ═══════════════════════════════════════════════════════════════
+   TEMPLATES DE DISPARO
+   ═══════════════════════════════════════════════════════════════ */
+
+let disparoTemplates  = [];
+let _tmplEditId       = null;   // null = modo novo, string = modo editar
+const DISPARO_TMPL_LIMIT_FREE = 3;
+
+/* ─── Pills de seleção de template no painel do contato ──────── */
+function _renderTmplPills(contactId) {
+  const pills = [{ id: '', name: 'Padrão' }, ...disparoTemplates];
+  return pills.map(t =>
+    `<button class="disparo-tmpl-pill" data-tmpl="${t.id}"
+       onclick="disparoApplyTemplate('${t.id}','${contactId}',this)">
+       ${t.name}
+     </button>`
+  ).join('');
+}
+
+function disparoApplyTemplate(tmplId, contactId, btn) {
+  /* Marca pill ativa */
+  document.querySelectorAll('.disparo-tmpl-pill').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  const ta = document.getElementById('disparo-ta');
+  if (!ta) return;
+
+  if (!tmplId) {
+    ta.value = DISPARO_TMPL;
+  } else {
+    const t = disparoTemplates.find(x => x.id === tmplId);
+    if (t) ta.value = t.body;
+  }
+
+  if (contactId) disparoLivePreview(contactId);
+}
+
+/* ─── Badge na pill nav ──────────────────────────────────────── */
+function _tmplUpdateBadge() {
+  const badge = document.getElementById('disparo-tmpl-badge');
+  if (!badge) return;
+  if (disparoTemplates.length > 0) {
+    badge.textContent = disparoTemplates.length;
+    badge.hidden = false;
+  } else {
+    badge.hidden = true;
+  }
+}
+
+/* ─── Label de limite ────────────────────────────────────────── */
+function tmplUpdateLimitLabel() {
+  const el   = document.getElementById('tmpl-limit-label');
+  const btn  = document.getElementById('tmpl-new-btn');
+  if (!el) return;
+  const plan = (typeof _userPlan !== 'undefined') ? _userPlan : 'free';
+
+  if (plan === 'orbit') {
+    el.textContent = 'Plano Orbit — templates ilimitados';
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  const used = disparoTemplates.length;
+  el.textContent = `Plano gratuito: ${used} / ${DISPARO_TMPL_LIMIT_FREE} templates`;
+  if (btn) btn.disabled = (used >= DISPARO_TMPL_LIMIT_FREE);
+}
+
+/* ─── Renderizar lista de templates ──────────────────────────── */
+function renderDisparoTemplates() {
+  const list = document.getElementById('tmpl-list');
+  if (!list) return;
+  tmplUpdateLimitLabel();
+
+  if (disparoTemplates.length === 0) {
+    list.innerHTML = `
+      <div class="history-empty">
+        <div class="history-empty-icon"><i class="ph ph-files"></i></div>
+        <h3>Nenhum template criado ainda</h3>
+        <p>Clique em <strong>"Novo Template"</strong> para criar sua primeira mensagem personalizada.</p>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = disparoTemplates.map(t => `
+    <div class="tmpl-card" id="tmpl-card-${t.id}">
+      <div class="tmpl-card-header">
+        <span class="tmpl-card-name"><i class="ph ph-file-text"></i> ${_esc(t.name)}</span>
+        <div class="tmpl-card-actions">
+          <button class="tmpl-btn-edit"  onclick="tmplStartEdit('${t.id}')" title="Editar">
+            <i class="ph ph-pencil-simple"></i>
+          </button>
+          <button class="tmpl-btn-del"   onclick="tmplDelete('${t.id}')" title="Excluir">
+            <i class="ph ph-trash"></i>
+          </button>
+        </div>
+      </div>
+      <p class="tmpl-card-preview">${_esc(t.body.slice(0, 120))}${t.body.length > 120 ? '…' : ''}</p>
+    </div>`
+  ).join('');
+}
+
+/* ─── Abrir formulário de novo template ──────────────────────── */
+function tmplOpenNewForm() {
+  const plan = (typeof _userPlan !== 'undefined') ? _userPlan : 'free';
+  if (plan !== 'orbit' && disparoTemplates.length >= DISPARO_TMPL_LIMIT_FREE) {
+    disparoShowToast(`Limite de ${DISPARO_TMPL_LIMIT_FREE} templates no plano gratuito.`, true);
+    return;
+  }
+  _tmplEditId = null;
+  document.getElementById('tmpl-form-title').innerHTML = '<i class="ph ph-plus"></i> Novo Template';
+  document.getElementById('tmpl-save-btn').innerHTML   = '<i class="ph ph-check"></i> Salvar template';
+  document.getElementById('tmpl-name').value  = '';
+  document.getElementById('tmpl-body').value  = '';
+  document.getElementById('tmpl-cc').textContent = '0 chars';
+  document.getElementById('tmpl-form-card').hidden = false;
+  document.getElementById('tmpl-name').focus();
+  document.getElementById('tmpl-form-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function tmplCancelForm() {
+  _tmplEditId = null;
+  document.getElementById('tmpl-form-card').hidden = true;
+}
+
+/* ─── Abrir formulário de edição ─────────────────────────────── */
+function tmplStartEdit(id) {
+  const t = disparoTemplates.find(x => x.id === id);
+  if (!t) return;
+  _tmplEditId = id;
+  document.getElementById('tmpl-form-title').innerHTML = '<i class="ph ph-pencil-simple"></i> Editar Template';
+  document.getElementById('tmpl-save-btn').innerHTML   = '<i class="ph ph-check"></i> Atualizar template';
+  document.getElementById('tmpl-name').value = t.name;
+  document.getElementById('tmpl-body').value = t.body;
+  tmplUpdateCounter();
+  document.getElementById('tmpl-form-card').hidden = false;
+  document.getElementById('tmpl-form-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* ─── Salvar (novo ou edição) ─────────────────────────────────── */
+function tmplSaveForm() {
+  const name = document.getElementById('tmpl-name').value.trim();
+  const body = document.getElementById('tmpl-body').value.trim();
+  if (!name || !body) { disparoShowToast('Preencha o nome e a mensagem.', true); return; }
+
+  const btn = document.getElementById('tmpl-save-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ph ph-circle-notch auth-spin"></i> Salvando...';
+
+  if (_tmplEditId) {
+    /* Edição */
+    const idx = disparoTemplates.findIndex(x => x.id === _tmplEditId);
+    if (idx !== -1) disparoTemplates[idx] = { ...disparoTemplates[idx], name, body };
+
+    if (typeof currentUser !== 'undefined' && currentUser) {
+      db.collection('users').doc(currentUser.uid).collection('disparo_templates').doc(_tmplEditId)
+        .update({ name, body, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+        .then(() => _tmplAfterSave('Template atualizado!'))
+        .catch(() => _tmplSaveError(btn));
+    } else {
+      _tmplAfterSave('Template atualizado!');
+    }
+
+  } else {
+    /* Novo */
+    const tmpl = { name, body };
+
+    if (typeof currentUser !== 'undefined' && currentUser) {
+      db.collection('users').doc(currentUser.uid).collection('disparo_templates').add({
+        ...tmpl,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      })
+      .then(ref => {
+        tmpl.id = ref.id;
+        disparoTemplates.push(tmpl);
+        _tmplAfterSave('Template salvo!');
+      })
+      .catch(() => _tmplSaveError(btn));
+    } else {
+      tmpl.id = 'local_' + Date.now();
+      disparoTemplates.push(tmpl);
+      _tmplAfterSave('Template salvo! Faça login para manter.');
+    }
+  }
+}
+
+function _tmplAfterSave(msg) {
+  _tmplEditId = null;
+  document.getElementById('tmpl-form-card').hidden = true;
+  renderDisparoTemplates();
+  _tmplUpdateBadge();
+  disparoShowToast(msg);
+}
+
+function _tmplSaveError(btn) {
+  btn.disabled = false;
+  btn.innerHTML = '<i class="ph ph-check"></i> Salvar template';
+  disparoShowToast('Erro ao salvar. Tente novamente.', true);
+}
+
+/* ─── Excluir template ───────────────────────────────────────── */
+function tmplDelete(id) {
+  if (!confirm('Excluir este template?')) return;
+
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    db.collection('users').doc(currentUser.uid).collection('disparo_templates').doc(id)
+      .delete().catch(() => {});
+  }
+
+  disparoTemplates = disparoTemplates.filter(t => t.id !== id);
+  if (_tmplEditId === id) {
+    _tmplEditId = null;
+    document.getElementById('tmpl-form-card').hidden = true;
+  }
+  renderDisparoTemplates();
+  _tmplUpdateBadge();
+  disparoShowToast('Template removido.');
+}
+
+/* ─── Contador de caracteres no form ─────────────────────────── */
+function tmplUpdateCounter() {
+  const ta = document.getElementById('tmpl-body');
+  const cc = document.getElementById('tmpl-cc');
+  if (ta && cc) cc.textContent = ta.value.length + ' chars';
+}
+
+/* ─── Inserir variável no textarea do form ───────────────────── */
+function tmplInsertVar(v) {
+  const ta = document.getElementById('tmpl-body'); if (!ta) return;
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  ta.value = ta.value.slice(0, s) + v + ta.value.slice(e);
+  ta.selectionStart = ta.selectionEnd = s + v.length;
+  ta.focus();
+  tmplUpdateCounter();
+}
 
 /* ═══════════════════════════════════════════════════════════════
    UTILITÁRIOS
@@ -869,3 +1286,138 @@ shakeStyle.textContent = `
   }
 `;
 document.head.appendChild(shakeStyle);
+
+/* ═══════════════════════════════════════════════════════════════
+   FIRESTORE — Carga de dados ao fazer login
+   ═══════════════════════════════════════════════════════════════ */
+
+function loadKmHistoryFromFirestore(uid) {
+  db.collection('users').doc(uid).collection('km_history')
+    .orderBy('savedAt', 'desc')
+    .limit(100)
+    .get()
+    .then(snap => {
+      if (snap.empty) return; // nada no Firestore → preserva histórico local da sessão
+
+      const fsEntries = snap.docs.map(doc => {
+        const d = doc.data();
+        return {
+          id:          doc.id,
+          firestoreId: doc.id,
+          origin:      d.origin      || '',
+          destination: d.destination || '',
+          totalKm:     d.totalKm     || 0,
+          tripLabel:   d.tripLabel   || 'ida',
+          realCost:    d.realCost    || 0,
+          charge:      d.charge      || 0,
+          profit:      d.profit      || 0,
+          ratePerKm:   d.ratePerKm   || 0,
+          consumption: d.consumption || 0,
+          fuelPrice:   d.fuelPrice   || 0,
+          savedAt:     d.savedAt ? d.savedAt.toDate() : new Date(),
+        };
+      });
+
+      /* Mantém entradas locais ainda não sincronizadas (sem firestoreId) */
+      const localOnly = kmHistory.filter(e => !e.firestoreId);
+      kmHistory = [...fsEntries, ...localOnly];
+
+      updateHistoryBadge();
+      renderHistory();
+    })
+    .catch(() => {});
+}
+
+function loadCltHistoryFromFirestore(uid) {
+  db.collection('users').doc(uid).collection('clt_history')
+    .orderBy('savedAt', 'desc')
+    .limit(100)
+    .get()
+    .then(snap => {
+      if (snap.empty) return; // preserva histórico local da sessão
+
+      const fsEntries = snap.docs.map(doc => {
+        const d = doc.data();
+        return {
+          id:          doc.id,
+          firestoreId: doc.id,
+          regime:   d.regime   || 'simples',
+          sal:      d.sal      || 0,
+          totalCLT: d.totalCLT || 0,
+          totalPJ:  d.totalPJ  || 0,
+          diff:     d.diff     || 0,
+          savedAt:  d.savedAt ? d.savedAt.toDate() : new Date(),
+        };
+      });
+
+      const localOnly = cltHistory.filter(e => !e.firestoreId);
+      cltHistory = [...fsEntries, ...localOnly];
+
+      updateCltBadge();
+      renderHistoryCLT();
+    })
+    .catch(() => {});
+}
+
+function loadKmSettingsFromFirestore(uid) {
+  db.collection('users').doc(uid).collection('settings').doc('km').get()
+    .then(snap => {
+      if (!snap.exists) return;
+      const d = snap.data();
+      if (d.fuel         != null) document.getElementById('ki-fuel').value         = d.fuel;
+      if (d.tires        != null) document.getElementById('ki-tires').value        = d.tires;
+      if (d.maintenance  != null) document.getElementById('ki-maintenance').value  = d.maintenance;
+      if (d.insurance    != null) document.getElementById('ki-insurance').value    = d.insurance;
+      if (d.depreciation != null) document.getElementById('ki-depreciation').value = d.depreciation;
+      if (d.consumption  != null) document.getElementById('consumption').value     = d.consumption;
+      if (d.fuelPrice    != null) {
+        document.getElementById('fuel-price').value =
+          parseFloat(d.fuelPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      if (d.ratePerKm    != null) {
+        document.getElementById('rate-per-km').value =
+          parseFloat(d.ratePerKm).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      recalcKmTable();
+    })
+    .catch(() => {});
+}
+
+function loadDisparoContactsFromFirestore(uid) {
+  db.collection('users').doc(uid).collection('disparo_contacts')
+    .orderBy('createdAt', 'asc')
+    .get()
+    .then(snap => {
+      disparoContacts = snap.docs.map(doc => {
+        const d = doc.data();
+        return {
+          id:      doc.id,
+          name:    d.name    || '',
+          company: d.company || '—',
+          segment: d.segment || '—',
+          group:   d.group   || '—',
+          phone:   d.phone   || '',
+          status:  d.status  || 'pending',
+        };
+      });
+      disparoUpdateStats();
+      disparoFilter();
+      _disparoUpdateLimitBar();
+    })
+    .catch(() => {});
+}
+
+function saveKmSettingsToFirestore() {
+  if (typeof currentUser === 'undefined' || !currentUser) return;
+  db.collection('users').doc(currentUser.uid).collection('settings').doc('km').set({
+    fuel:         parseFloat(document.getElementById('ki-fuel').value)         || 0,
+    tires:        parseFloat(document.getElementById('ki-tires').value)        || 0,
+    maintenance:  parseFloat(document.getElementById('ki-maintenance').value)  || 0,
+    insurance:    parseFloat(document.getElementById('ki-insurance').value)    || 0,
+    depreciation: parseFloat(document.getElementById('ki-depreciation').value) || 0,
+    consumption:  parseFloat(document.getElementById('consumption').value)     || 10,
+    fuelPrice:    parseMasked('fuel-price'),
+    ratePerKm:    parseMasked('rate-per-km'),
+    updatedAt:    firebase.firestore.FieldValue.serverTimestamp(),
+  });
+}

@@ -18,6 +18,7 @@
 
   <link rel="icon" type="image/png" href="assets/img/favicon.png" />
   <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="stylesheet" href="assets/css/auth.css" />
 </head>
 
 <body>
@@ -40,15 +41,15 @@
         <i class="ph ph-scales"></i>
         <span>Custo CLT x PJ</span>
       </a>
+      <a href="#" class="nav-item" data-tool="disparo" onclick="loadTool('disparo', this)">
+        <i class="ph ph-whatsapp-logo"></i>
+        <span>Disparo WhatsApp</span>
+      </a>
       <div class="nav-item nav-item--soon">
         <i class="ph ph-tag"></i>
         <span>Markup de Preços</span>
         <span class="nav-badge">Em breve</span>
       </div>
-      <a href="#" class="nav-item" data-tool="disparo" onclick="loadTool('disparo', this)">
-        <i class="ph ph-whatsapp-logo"></i>
-        <span>Disparo WhatsApp</span>
-      </a>
       <div class="nav-item nav-item--soon">
         <i class="ph ph-chart-line-up"></i>
         <span>Ponto de Equilíbrio</span>
@@ -80,6 +81,28 @@
         <button class="hamburger" id="hamburger" onclick="openSidebar()" aria-label="Abrir menu">
           <i class="ph ph-list"></i>
         </button>
+      </div>
+
+      <div class="topbar-right">
+        <!-- Botão entrar (quando deslogado) -->
+        <button class="btn-auth-login" id="auth-btn-login" onclick="openAuthModal('login')">
+          <i class="ph ph-user"></i>
+          <span>Entrar</span>
+        </button>
+
+        <!-- Área do usuário (quando logado) -->
+        <div class="auth-user-area" id="auth-user-area" hidden>
+          <button class="auth-user-btn" onclick="toggleUserDropdown()" aria-label="Menu do usuário">
+            <div class="auth-avatar" id="auth-user-avatar">?</div>
+            <span id="auth-user-name"></span>
+            <i class="ph ph-caret-down"></i>
+          </button>
+          <div class="auth-dropdown" id="auth-dropdown">
+            <button onclick="authLogout()">
+              <i class="ph ph-sign-out"></i> Sair
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -212,11 +235,21 @@
                 </p>
               </div>
 
-              <button class="btn-calc" onclick="calcularKM()">
+            </div>
+
+            <!-- Botão flutuante (Dock) para Calcular -->
+            <div class="floating-dock-wrapper">
+              <div class="dock-info">
+                <i class="ph ph-car" style="color: var(--c-blue);"></i>
+                <span class="dock-info-lbl">Pronto para calcular</span>
+              </div>
+              <div class="dock-divider"></div>
+              <button class="dock-btn" onclick="calcularKM()">
                 <i class="ph ph-calculator"></i>
-                Calcular
+                <span>Calcular</span>
               </button>
             </div>
+
 
             <!-- RESULTS -->
             <div class="results-area" id="results-area" hidden>
@@ -516,215 +549,226 @@
         <!-- ── PAINEL: COMPARADOR ── -->
         <div class="tab-panel" id="panel-compare">
 
-        <p class="tool-desc">Descubra o custo real de contratar CLT versus pagar um prestador PJ — com todos os
-          encargos, provisões e benefícios. Encargos atualizados para 2026.</p>
+          <p class="tool-desc">Descubra o custo real de contratar CLT versus pagar um prestador PJ — com todos os
+            encargos, provisões e benefícios. Encargos atualizados para 2026.</p>
 
-        <div class="tool-body tool-body--single">
+          <div class="tool-body tool-body--single">
 
-          <!-- Regime tributário -->
-          <div class="card">
-            <h2 class="card-title"><i class="ph ph-buildings"></i> Regime Tributário da Empresa</h2>
-            <div class="regime-selector">
-              <div class="regime-opt selected" id="opt-simples" onclick="selectCltRegime('simples')">
-                <div class="regime-dot"></div>
-                <div>
-                  <div class="regime-label">Simples Nacional</div>
-                  <div class="regime-sub">INSS patronal incluso no DAS — folha paga só FGTS 8%</div>
+            <!-- Regime tributário -->
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-buildings"></i> Regime Tributário da Empresa</h2>
+              <div class="regime-selector">
+                <div class="regime-opt selected" id="opt-simples" onclick="selectCltRegime('simples')">
+                  <div class="regime-dot"></div>
+                  <div>
+                    <div class="regime-label">Simples Nacional</div>
+                    <div class="regime-sub">INSS patronal incluso no DAS — folha paga só FGTS 8%</div>
+                  </div>
+                </div>
+                <div class="regime-opt" id="opt-lucro" onclick="selectCltRegime('lucro')">
+                  <div class="regime-dot"></div>
+                  <div>
+                    <div class="regime-label">Lucro Real / Presumido</div>
+                    <div class="regime-sub">INSS patronal 20% + Sistema S 5% + RAT 2% sobre a folha</div>
+                  </div>
                 </div>
               </div>
-              <div class="regime-opt" id="opt-lucro" onclick="selectCltRegime('lucro')">
-                <div class="regime-dot"></div>
-                <div>
-                  <div class="regime-label">Lucro Real / Presumido</div>
-                  <div class="regime-sub">INSS patronal 20% + Sistema S 5% + RAT 2% sobre a folha</div>
+            </div>
+
+            <!-- Dados CLT -->
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-identification-card"></i> Dados do Funcionário CLT</h2>
+              <div class="form-grid form-grid--2">
+                <div class="form-field">
+                  <label>Salário Bruto <span class="label-unit">R$/mês</span></label>
+                  <input type="text" inputmode="decimal" id="clt-salario" placeholder="Ex.: 3.000,00" />
+                </div>
+                <div class="form-field">
+                  <label>Vale Refeição / Alimentação <span class="label-unit">R$/mês</span></label>
+                  <input type="text" inputmode="decimal" id="clt-vr" placeholder="Ex.: 550,00" />
+                </div>
+                <div class="form-field">
+                  <label>Vale Transporte <span class="label-unit">custo líquido empresa</span></label>
+                  <input type="text" inputmode="decimal" id="clt-vt" placeholder="Ex.: 220,00" />
+                </div>
+                <div class="form-field">
+                  <label>Cesta Básica <span class="label-unit">R$/mês</span></label>
+                  <input type="text" inputmode="decimal" id="clt-cesta" placeholder="Ex.: 200,00" />
+                </div>
+                <div class="form-field">
+                  <label>Bônus / Comissão <span class="label-unit">média R$/mês</span></label>
+                  <input type="text" inputmode="decimal" id="clt-bonus" placeholder="Ex.: 0,00" />
+                </div>
+                <div class="form-field">
+                  <label>Outros benefícios <span class="label-unit">R$/mês</span></label>
+                  <input type="text" inputmode="decimal" id="clt-outros" placeholder="Ex.: 0,00" />
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- Dados CLT -->
-          <div class="card">
-            <h2 class="card-title"><i class="ph ph-identification-card"></i> Dados do Funcionário CLT</h2>
-            <div class="form-grid form-grid--2">
-              <div class="form-field">
-                <label>Salário Bruto <span class="label-unit">R$/mês</span></label>
-                <input type="text" inputmode="decimal" id="clt-salario" placeholder="Ex.: 3.000,00" />
+            <!-- Dados PJ -->
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-file-text"></i> Contrato PJ</h2>
+              <div class="form-grid form-grid--2">
+                <div class="form-field">
+                  <label>Valor mensal do contrato <span class="label-unit">nota fiscal</span></label>
+                  <input type="text" inputmode="decimal" id="pj-valor" placeholder="Ex.: 4.500,00" />
+                </div>
+                <div class="form-field">
+                  <label>Benefícios extras ao PJ <span class="label-unit">R$/mês, se houver</span></label>
+                  <input type="text" inputmode="decimal" id="pj-benef" placeholder="Ex.: 0,00" />
+                </div>
               </div>
-              <div class="form-field">
-                <label>Vale Refeição / Alimentação <span class="label-unit">R$/mês</span></label>
-                <input type="text" inputmode="decimal" id="clt-vr" placeholder="Ex.: 550,00" />
-              </div>
-              <div class="form-field">
-                <label>Vale Transporte <span class="label-unit">custo líquido empresa</span></label>
-                <input type="text" inputmode="decimal" id="clt-vt" placeholder="Ex.: 220,00" />
-              </div>
-              <div class="form-field">
-                <label>Cesta Básica <span class="label-unit">R$/mês</span></label>
-                <input type="text" inputmode="decimal" id="clt-cesta" placeholder="Ex.: 200,00" />
-              </div>
-              <div class="form-field">
-                <label>Bônus / Comissão <span class="label-unit">média R$/mês</span></label>
-                <input type="text" inputmode="decimal" id="clt-bonus" placeholder="Ex.: 0,00" />
-              </div>
-              <div class="form-field">
-                <label>Outros benefícios <span class="label-unit">R$/mês</span></label>
-                <input type="text" inputmode="decimal" id="clt-outros" placeholder="Ex.: 0,00" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Dados PJ -->
-          <div class="card">
-            <h2 class="card-title"><i class="ph ph-file-text"></i> Contrato PJ</h2>
-            <div class="form-grid form-grid--2">
-              <div class="form-field">
-                <label>Valor mensal do contrato <span class="label-unit">nota fiscal</span></label>
-                <input type="text" inputmode="decimal" id="pj-valor" placeholder="Ex.: 4.500,00" />
-              </div>
-              <div class="form-field">
-                <label>Benefícios extras ao PJ <span class="label-unit">R$/mês, se houver</span></label>
-                <input type="text" inputmode="decimal" id="pj-benef" placeholder="Ex.: 0,00" />
-              </div>
-            </div>
-            <div class="field-hint" style="margin-top:14px;">
-              <i class="ph ph-info"></i>
-              <span>No PJ não há FGTS, 13º, férias nem encargos patronais. Atenção ao risco jurídico de vínculo
-                empregatício se houver exclusividade, subordinação e pessoalidade.</span>
-            </div>
-          </div>
-
-          <!-- Botão calcular -->
-          <button class="btn-calc" onclick="calcularCLTPJ()">
-            <i class="ph ph-calculator"></i> Comparar CLT × PJ
-          </button>
-
-          <!-- Resultados -->
-          <div class="clt-results" id="clt-results" hidden>
-
-            <div class="cmp-header">
-              <div class="cmp-col cmp-col--clt">
-                <div class="cmp-col-label">Custo Total CLT / mês</div>
-                <div class="cmp-col-value cmp-col-value--red" id="r-clt-total">—</div>
-                <div class="cmp-col-sub" id="r-clt-pct">—</div>
-              </div>
-              <div class="cmp-col cmp-col--pj">
-                <div class="cmp-col-label">Custo Total PJ / mês</div>
-                <div class="cmp-col-value cmp-col-value--green" id="r-pj-total">—</div>
-                <div class="cmp-col-sub">sem encargos patronais</div>
-              </div>
-              <div class="cmp-col cmp-col--diff">
-                <div class="cmp-col-label">Diferença mensal</div>
-                <div class="cmp-col-value cmp-col-value--amber" id="r-diff">—</div>
-                <div class="cmp-col-sub" id="r-diff-sub">—</div>
+              <div class="field-hint" style="margin-top:14px;">
+                <i class="ph ph-info"></i>
+                <span>No PJ não há FGTS, 13º, férias nem encargos patronais. Atenção ao risco jurídico de vínculo
+                  empregatício se houver exclusividade, subordinação e pessoalidade.</span>
               </div>
             </div>
 
-            <div class="breakdown">
-              <div class="bk-section-title">Detalhamento linha a linha</div>
-              <div class="bk-row bk-row--head">
-                <div class="bk-label">Item</div>
-                <div class="bk-val"
-                  style="color:var(--c-red);font-size:.72rem;font-weight:700;text-transform:uppercase;">CLT</div>
-                <div class="bk-val"
-                  style="color:var(--c-green);font-size:.72rem;font-weight:700;text-transform:uppercase;">PJ</div>
+            <!-- Botão flutuante (Dock) para Comparar -->
+            <div class="floating-dock-wrapper">
+              <div class="dock-info">
+                <i class="ph ph-file-text" style="color: var(--c-blue);"></i>
+                <span class="dock-info-lbl">Comparador</span>
               </div>
-              <div class="bk-row">
-                <div class="bk-label">Salário bruto<small>Base de cálculo dos encargos</small></div>
-                <div class="bk-val bk-val--red" id="bd-salario">—</div>
-                <div class="bk-val bk-val--muted">—</div>
-              </div>
-              <div class="bk-row">
-                <div class="bk-label">INSS Patronal<small id="txt-inss-pat">20% sobre salário + comissão</small></div>
-                <div class="bk-val bk-val--red" id="bd-inss-pat">—</div>
-                <div class="bk-val bk-val--green">R$ 0,00</div>
-              </div>
-              <div class="bk-row">
-                <div class="bk-label">FGTS<small>8% sobre salário + comissão</small></div>
-                <div class="bk-val bk-val--red" id="bd-fgts">—</div>
-                <div class="bk-val bk-val--green">R$ 0,00</div>
-              </div>
-              <div class="bk-row" id="bk-row-sistema-s">
-                <div class="bk-label">Sistema S + RAT<small>~7% (Lucro Real/Presumido)</small></div>
-                <div class="bk-val bk-val--red" id="bd-sistema-s">—</div>
-                <div class="bk-val bk-val--green">R$ 0,00</div>
-              </div>
-              <div class="bk-row">
-                <div class="bk-label">Provisão 13º salário<small>8,33% / mês</small></div>
-                <div class="bk-val bk-val--red" id="bd-decimo">—</div>
-                <div class="bk-val bk-val--green">R$ 0,00</div>
-              </div>
-              <div class="bk-row">
-                <div class="bk-label">Provisão férias + 1/3<small>11,11% / mês</small></div>
-                <div class="bk-val bk-val--red" id="bd-ferias">—</div>
-                <div class="bk-val bk-val--green">R$ 0,00</div>
-              </div>
-              <div class="bk-row">
-                <div class="bk-label">Provisão multa rescisória FGTS<small>3,33% / mês (40% FGTS ÷ 12)</small></div>
-                <div class="bk-val bk-val--red" id="bd-multa">—</div>
-                <div class="bk-val bk-val--green">R$ 0,00</div>
-              </div>
-              <div class="bk-row">
-                <div class="bk-label">Vale Refeição / Alimentação</div>
-                <div class="bk-val bk-val--red" id="bd-vr">—</div>
-                <div class="bk-val bk-val--green">R$ 0,00</div>
-              </div>
-              <div class="bk-row">
-                <div class="bk-label">Vale Transporte</div>
-                <div class="bk-val bk-val--red" id="bd-vt">—</div>
-                <div class="bk-val bk-val--green">R$ 0,00</div>
-              </div>
-              <div class="bk-row">
-                <div class="bk-label">Cesta Básica</div>
-                <div class="bk-val bk-val--red" id="bd-cesta">—</div>
-                <div class="bk-val bk-val--green">R$ 0,00</div>
-              </div>
-              <div class="bk-row">
-                <div class="bk-label">Bônus / Comissão<small>Encargos também incidem sobre comissão</small></div>
-                <div class="bk-val bk-val--red" id="bd-bonus">—</div>
-                <div class="bk-val bk-val--green">R$ 0,00</div>
-              </div>
-              <div class="bk-row">
-                <div class="bk-label">Outros benefícios</div>
-                <div class="bk-val bk-val--red" id="bd-outros">—</div>
-                <div class="bk-val bk-val--green">R$ 0,00</div>
-              </div>
-              <div class="bk-row">
-                <div class="bk-label">Nota fiscal / contrato PJ</div>
-                <div class="bk-val bk-val--muted">—</div>
-                <div class="bk-val bk-val--green" id="bd-pj-nf">—</div>
-              </div>
-              <div class="bk-row">
-                <div class="bk-label">Benefícios extras PJ</div>
-                <div class="bk-val bk-val--muted">—</div>
-                <div class="bk-val bk-val--green" id="bd-pj-benef-extra">—</div>
-              </div>
-              <div class="bk-row bk-row--total">
-                <div class="bk-label">TOTAL MENSAL</div>
-                <div class="bk-val bk-val--red" id="bd-total-clt">—</div>
-                <div class="bk-val bk-val--green" id="bd-total-pj">—</div>
-              </div>
-            </div>
-
-            <div class="clt-alert" id="clt-alert">
-              <i class="ph ph-warning"></i>
-              <span id="clt-alert-text">—</span>
-            </div>
-
-            <div class="clt-legal-note">
-              <strong>Base legal 2026:</strong> Salário mínimo R$ 1.621 | Teto INSS R$ 8.475,55 | FGTS 8% (Lei 8.036/90)
-              | INSS Patronal 20% (Art. 22, Lei 8.212/91) | Provisão 13º 8,33% | Férias+1/3 11,11% | Multa FGTS 40%÷12.
-              Não substitui orientação de contador ou advogado trabalhista.
-            </div>
-
-            <div class="results-footer-actions">
-              <button class="btn-save-history" id="btn-save-clt" onclick="saveToHistoryCLT()">
-                <i class="ph ph-bookmark-simple"></i> Salvar no Histórico
+              <div class="dock-divider"></div>
+              <button class="dock-btn" onclick="calcularCLTPJ()">
+                <i class="ph ph-calculator"></i>
+                <span>Comparar CLT × PJ</span>
               </button>
             </div>
 
-          </div><!-- /clt-results -->
 
-        </div><!-- /tool-body -->
+            <!-- Resultados -->
+            <div class="clt-results" id="clt-results" hidden>
+
+              <div class="cmp-header">
+                <div class="cmp-col cmp-col--clt">
+                  <div class="cmp-col-label">Custo Total CLT / mês</div>
+                  <div class="cmp-col-value cmp-col-value--red" id="r-clt-total">—</div>
+                  <div class="cmp-col-sub" id="r-clt-pct">—</div>
+                </div>
+                <div class="cmp-col cmp-col--pj">
+                  <div class="cmp-col-label">Custo Total PJ / mês</div>
+                  <div class="cmp-col-value cmp-col-value--green" id="r-pj-total">—</div>
+                  <div class="cmp-col-sub">sem encargos patronais</div>
+                </div>
+                <div class="cmp-col cmp-col--diff">
+                  <div class="cmp-col-label">Diferença mensal</div>
+                  <div class="cmp-col-value cmp-col-value--amber" id="r-diff">—</div>
+                  <div class="cmp-col-sub" id="r-diff-sub">—</div>
+                </div>
+              </div>
+
+              <div class="breakdown">
+                <div class="bk-section-title">Detalhamento linha a linha</div>
+                <div class="bk-row bk-row--head">
+                  <div class="bk-label">Item</div>
+                  <div class="bk-val"
+                    style="color:var(--c-red);font-size:.72rem;font-weight:700;text-transform:uppercase;">CLT</div>
+                  <div class="bk-val"
+                    style="color:var(--c-green);font-size:.72rem;font-weight:700;text-transform:uppercase;">PJ</div>
+                </div>
+                <div class="bk-row">
+                  <div class="bk-label">Salário bruto<small>Base de cálculo dos encargos</small></div>
+                  <div class="bk-val bk-val--red" id="bd-salario">—</div>
+                  <div class="bk-val bk-val--muted">—</div>
+                </div>
+                <div class="bk-row">
+                  <div class="bk-label">INSS Patronal<small id="txt-inss-pat">20% sobre salário + comissão</small></div>
+                  <div class="bk-val bk-val--red" id="bd-inss-pat">—</div>
+                  <div class="bk-val bk-val--green">R$ 0,00</div>
+                </div>
+                <div class="bk-row">
+                  <div class="bk-label">FGTS<small>8% sobre salário + comissão</small></div>
+                  <div class="bk-val bk-val--red" id="bd-fgts">—</div>
+                  <div class="bk-val bk-val--green">R$ 0,00</div>
+                </div>
+                <div class="bk-row" id="bk-row-sistema-s">
+                  <div class="bk-label">Sistema S + RAT<small>~7% (Lucro Real/Presumido)</small></div>
+                  <div class="bk-val bk-val--red" id="bd-sistema-s">—</div>
+                  <div class="bk-val bk-val--green">R$ 0,00</div>
+                </div>
+                <div class="bk-row">
+                  <div class="bk-label">Provisão 13º salário<small>8,33% / mês</small></div>
+                  <div class="bk-val bk-val--red" id="bd-decimo">—</div>
+                  <div class="bk-val bk-val--green">R$ 0,00</div>
+                </div>
+                <div class="bk-row">
+                  <div class="bk-label">Provisão férias + 1/3<small>11,11% / mês</small></div>
+                  <div class="bk-val bk-val--red" id="bd-ferias">—</div>
+                  <div class="bk-val bk-val--green">R$ 0,00</div>
+                </div>
+                <div class="bk-row">
+                  <div class="bk-label">Provisão multa rescisória FGTS<small>3,33% / mês (40% FGTS ÷ 12)</small></div>
+                  <div class="bk-val bk-val--red" id="bd-multa">—</div>
+                  <div class="bk-val bk-val--green">R$ 0,00</div>
+                </div>
+                <div class="bk-row">
+                  <div class="bk-label">Vale Refeição / Alimentação</div>
+                  <div class="bk-val bk-val--red" id="bd-vr">—</div>
+                  <div class="bk-val bk-val--green">R$ 0,00</div>
+                </div>
+                <div class="bk-row">
+                  <div class="bk-label">Vale Transporte</div>
+                  <div class="bk-val bk-val--red" id="bd-vt">—</div>
+                  <div class="bk-val bk-val--green">R$ 0,00</div>
+                </div>
+                <div class="bk-row">
+                  <div class="bk-label">Cesta Básica</div>
+                  <div class="bk-val bk-val--red" id="bd-cesta">—</div>
+                  <div class="bk-val bk-val--green">R$ 0,00</div>
+                </div>
+                <div class="bk-row">
+                  <div class="bk-label">Bônus / Comissão<small>Encargos também incidem sobre comissão</small></div>
+                  <div class="bk-val bk-val--red" id="bd-bonus">—</div>
+                  <div class="bk-val bk-val--green">R$ 0,00</div>
+                </div>
+                <div class="bk-row">
+                  <div class="bk-label">Outros benefícios</div>
+                  <div class="bk-val bk-val--red" id="bd-outros">—</div>
+                  <div class="bk-val bk-val--green">R$ 0,00</div>
+                </div>
+                <div class="bk-row">
+                  <div class="bk-label">Nota fiscal / contrato PJ</div>
+                  <div class="bk-val bk-val--muted">—</div>
+                  <div class="bk-val bk-val--green" id="bd-pj-nf">—</div>
+                </div>
+                <div class="bk-row">
+                  <div class="bk-label">Benefícios extras PJ</div>
+                  <div class="bk-val bk-val--muted">—</div>
+                  <div class="bk-val bk-val--green" id="bd-pj-benef-extra">—</div>
+                </div>
+                <div class="bk-row bk-row--total">
+                  <div class="bk-label">TOTAL MENSAL</div>
+                  <div class="bk-val bk-val--red" id="bd-total-clt">—</div>
+                  <div class="bk-val bk-val--green" id="bd-total-pj">—</div>
+                </div>
+              </div>
+
+              <div class="clt-alert" id="clt-alert">
+                <i class="ph ph-warning"></i>
+                <span id="clt-alert-text">—</span>
+              </div>
+
+              <div class="clt-legal-note">
+                <strong>Base legal 2026:</strong> Salário mínimo R$ 1.621 | Teto INSS R$ 8.475,55 | FGTS 8% (Lei
+                8.036/90)
+                | INSS Patronal 20% (Art. 22, Lei 8.212/91) | Provisão 13º 8,33% | Férias+1/3 11,11% | Multa FGTS
+                40%÷12.
+                Não substitui orientação de contador ou advogado trabalhista.
+              </div>
+
+              <div class="results-footer-actions">
+                <button class="btn-save-history" id="btn-save-clt" onclick="saveToHistoryCLT()">
+                  <i class="ph ph-bookmark-simple"></i> Salvar no Histórico
+                </button>
+              </div>
+
+            </div><!-- /clt-results -->
+
+          </div><!-- /tool-body -->
         </div><!-- /panel-compare -->
 
         <!-- ── PAINEL: HISTÓRICO CLT ── -->
@@ -756,16 +800,45 @@
             </nav>
           </div>
           <div class="tool-header-right">
-            <button class="btn-calc" style="margin-top:0;width:auto;padding:9px 18px;font-size:.85rem;" onclick="disparoOpenModal()">
-              <i class="ph ph-plus"></i> Novo Contato
-            </button>
+            <nav class="pill-nav" role="tablist">
+              <button class="pill-item active" role="tab" aria-selected="true"
+                onclick="switchDisparoTab('central', this)">
+                Central de Disparo
+              </button>
+              <button class="pill-item" role="tab" aria-selected="false"
+                onclick="switchDisparoTab('templates', this)">
+                Templates
+                <span class="pill-badge" id="disparo-tmpl-badge" hidden></span>
+              </button>
+            </nav>
           </div>
         </div>
 
-        <div class="disparo-layout">
+        <!-- ── PAINEL: CENTRAL DE DISPARO ── -->
+        <div id="panel-disparo-central">
 
-          <!-- SIDEBAR DE CONTATOS -->
-          <aside class="disparo-sidebar">
+        <!-- Botão flutuante (Dock) do Disparo -->
+        <div class="floating-dock-wrapper">
+          <div class="dock-info">
+            <i class="ph ph-whatsapp-logo" style="color: var(--c-green);"></i>
+            <span class="dock-info-lbl" style="margin-left: 2px;">Novo envio</span>
+          </div>
+          <div class="dock-divider"></div>
+          <button class="dock-btn" onclick="disparoOpenModal()">
+            <i class="ph ph-plus"></i>
+            <span>Novo Contato</span>
+          </button>
+        </div>
+
+        <p class="tool-desc">Gerencie seus contatos e envie mensagens personalizadas no WhatsApp com rapidez e
+          eficiência.</p>
+
+        <div class="tool-body tool-body--disparo">
+
+          <!-- COLUNA ESQUERDA: ESTATÍSTICA E CONTATOS -->
+          <div class="card card--disparo-left">
+            <h2 class="card-title"><i class="ph ph-users"></i> Contatos</h2>
+
             <div class="disparo-sidebar-top">
               <div class="disparo-eyebrow">Visão geral</div>
               <div class="disparo-stats-grid">
@@ -789,25 +862,99 @@
                 <span class="disparo-prog-lbl" id="disparo-pl">0 / 0</span>
               </div>
             </div>
+
             <div class="disparo-search-wrap">
               <div class="input-icon-wrap">
                 <i class="ph ph-magnifying-glass"></i>
-                <input type="text" class="disparo-search-input" id="disparo-si" placeholder="Buscar contato ou grupo..." oninput="disparoFilter()">
+                <input type="text" class="disparo-search-input" id="disparo-si" placeholder="Buscar contato ou grupo..."
+                  oninput="disparoFilter()">
               </div>
             </div>
-            <div class="disparo-clist" id="disparo-cl"></div>
-          </aside>
 
-          <!-- PAINEL PRINCIPAL -->
-          <div class="disparo-main" id="disparo-main">
-            <div class="disparo-empty">
-              <div class="disparo-empty-icon"><i class="ph ph-chat-circle-dots"></i></div>
-              <div class="disparo-empty-t">Nenhum contato selecionado</div>
-              <div class="disparo-empty-s">Selecione um contato para personalizar e disparar a mensagem pelo WhatsApp</div>
+            <div class="disparo-clist" id="disparo-cl"></div>
+
+            <!-- Barra de limite (plano free) -->
+            <div class="disparo-limit-wrap" id="disparo-limit-wrap">
+              <div class="disparo-limit-track">
+                <div class="disparo-limit-fill" id="disparo-limit-bar" style="width:0%"></div>
+              </div>
+              <span class="disparo-limit-label" id="disparo-limit-label">0 / 100 contatos</span>
             </div>
           </div>
 
-        </div><!-- /disparo-layout -->
+          <!-- COLUNA DIREITA: PAINEL PRINCIPAL -->
+          <div class="card card--disparo-main">
+            <div class="disparo-main" id="disparo-main">
+              <div class="disparo-empty">
+                <div class="disparo-empty-icon"><i class="ph ph-chat-circle-dots"></i></div>
+                <div class="disparo-empty-t">Nenhum contato selecionado</div>
+                <div class="disparo-empty-s">Selecione um contato para personalizar e disparar a mensagem pelo WhatsApp
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /tool-body--disparo -->
+
+        </div><!-- /panel-disparo-central -->
+
+        <!-- ── PAINEL: TEMPLATES ── -->
+        <div id="panel-disparo-templates" hidden>
+          <div class="tool-body">
+
+            <!-- Formulário (novo / editar) -->
+            <div class="card" id="tmpl-form-card" hidden>
+              <h2 class="card-title" id="tmpl-form-title"><i class="ph ph-plus"></i> Novo Template</h2>
+              <div class="form-field" style="margin-top:14px;">
+                <label for="tmpl-name">Nome do template</label>
+                <input type="text" id="tmpl-name" placeholder="Ex: Apresentação IBBC" />
+              </div>
+              <div class="form-field">
+                <label for="tmpl-body">Mensagem</label>
+                <div class="disparo-tbox">
+                  <textarea class="disparo-ta" id="tmpl-body" rows="7"
+                    oninput="tmplUpdateCounter()"
+                    placeholder="Use {nome}, {empresa}, {grupo}, {segmento} como variáveis"></textarea>
+                  <div class="disparo-tbar">
+                    <div class="disparo-var-chips">
+                      <button class="disparo-vc" onclick="tmplInsertVar('{nome}')">+ nome</button>
+                      <button class="disparo-vc" onclick="tmplInsertVar('{empresa}')">+ empresa</button>
+                      <button class="disparo-vc" onclick="tmplInsertVar('{grupo}')">+ grupo</button>
+                      <button class="disparo-vc" onclick="tmplInsertVar('{segmento}')">+ segmento</button>
+                    </div>
+                    <span class="disparo-cc" id="tmpl-cc">0 chars</span>
+                  </div>
+                </div>
+              </div>
+              <div class="km-table-actions" style="margin-top:4px;">
+                <button class="btn-km-reset" onclick="tmplCancelForm()">
+                  <i class="ph ph-x"></i> Cancelar
+                </button>
+                <button class="btn-km-apply" id="tmpl-save-btn" onclick="tmplSaveForm()">
+                  <i class="ph ph-check"></i> Salvar template
+                </button>
+              </div>
+            </div>
+
+            <!-- Lista de templates -->
+            <div class="card">
+              <div class="tmpl-list-header">
+                <div>
+                  <h2 class="card-title"><i class="ph ph-files"></i> Meus Templates</h2>
+                  <p class="config-desc" id="tmpl-limit-label">Plano gratuito: até 3 templates</p>
+                </div>
+                <button class="btn-km-apply" id="tmpl-new-btn" onclick="tmplOpenNewForm()"
+                  style="margin:0;padding:9px 16px;white-space:nowrap;">
+                  <i class="ph ph-plus"></i> Novo Template
+                </button>
+              </div>
+              <div id="tmpl-list">
+                <!-- preenchido pelo JS -->
+              </div>
+            </div>
+
+          </div>
+        </div><!-- /panel-disparo-templates -->
 
         <!-- Modal adicionar contato -->
         <div class="disparo-modal-overlay" id="disparo-ov" onclick="disparoCloseOverlay(event)">
@@ -877,10 +1024,138 @@
     </main>
   </div>
 
-  <!-- Firebase SDK (estrutura inicial) -->
+  <!-- ═══════════════════════ AUTH MODAL ═══════════════════════ -->
+  <div class="auth-modal-overlay" id="auth-modal" onclick="if(event.target===this)closeAuthModal()">
+    <div class="auth-modal-box">
+
+      <div class="auth-modal-header">
+        <div>
+          <h2 id="auth-modal-title">Entrar na sua conta</h2>
+          <p id="auth-modal-subtitle">Salve históricos e configurações em qualquer dispositivo.</p>
+        </div>
+        <button class="auth-modal-close" onclick="closeAuthModal()" aria-label="Fechar">
+          <i class="ph ph-x"></i>
+        </button>
+      </div>
+
+      <!-- ── View: Login ── -->
+      <div id="auth-view-login" class="auth-view">
+        <button class="btn-google" onclick="authWithGoogle()">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
+          Continuar com Google
+        </button>
+
+        <div class="auth-divider"><span>ou com e-mail</span></div>
+
+        <div class="form-field">
+          <label for="auth-email">E-mail</label>
+          <input type="email" id="auth-email" placeholder="seu@email.com" autocomplete="email" />
+        </div>
+        <div class="form-field">
+          <label for="auth-password">Senha</label>
+          <input type="password" id="auth-password" placeholder="••••••" autocomplete="current-password"
+            onkeydown="if(event.key==='Enter')authLogin()" />
+        </div>
+
+        <div class="auth-error" id="auth-error-login" hidden></div>
+
+        <button class="btn-auth-submit" id="auth-btn-submit-login" onclick="authLogin()">
+          <i class="ph ph-sign-in"></i> Entrar
+        </button>
+
+        <p class="auth-switch">
+          Não tem conta?
+          <button type="button" onclick="switchAuthMode('register')">Criar conta gratuita →</button>
+        </p>
+      </div>
+
+      <!-- ── View: Criar conta ── -->
+      <div id="auth-view-register" class="auth-view" hidden>
+        <button class="btn-google" onclick="authWithGoogle()">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
+          Cadastrar com Google
+        </button>
+
+        <div class="auth-divider"><span>ou com e-mail</span></div>
+
+        <div class="form-field">
+          <label for="auth-name">Seu nome</label>
+          <input type="text" id="auth-name" placeholder="Ex: João Silva" autocomplete="name" />
+        </div>
+        <div class="form-field">
+          <label for="auth-email-reg">E-mail</label>
+          <input type="email" id="auth-email-reg" placeholder="seu@email.com" autocomplete="email" />
+        </div>
+        <div class="form-field">
+          <label for="auth-password-reg">Senha <span class="label-unit">mínimo 6 caracteres</span></label>
+          <input type="password" id="auth-password-reg" placeholder="••••••" autocomplete="new-password"
+            onkeydown="if(event.key==='Enter')authRegister()" />
+        </div>
+
+        <div class="auth-error" id="auth-error-register" hidden></div>
+
+        <button class="btn-auth-submit" id="auth-btn-submit-register" onclick="authRegister()">
+          <i class="ph ph-user-plus"></i> Criar conta gratuita
+        </button>
+
+        <p class="auth-switch">
+          <button type="button" onclick="switchAuthMode('login')">← Já tenho conta</button>
+        </p>
+      </div>
+
+      <!-- ── View: Onboarding ── -->
+      <div id="auth-view-onboarding" class="auth-view" hidden>
+        <div class="ob-intro">
+          <i class="ph ph-user-circle"></i>
+          <p>Esses dados nos ajudam a entender melhor quem usa o Orbit Tools.</p>
+        </div>
+
+        <div class="form-field">
+          <label for="ob-fullname">Nome completo <span class="label-required">*</span></label>
+          <input type="text" id="ob-fullname" placeholder="Ex: João Silva" autocomplete="name" />
+        </div>
+        <div class="form-field">
+          <label for="ob-whatsapp">WhatsApp <span class="label-unit">com DDD</span> <span class="label-required">*</span></label>
+          <input type="tel" id="ob-whatsapp" placeholder="(11) 99999-9999" autocomplete="tel" />
+        </div>
+        <div class="form-field">
+          <label for="ob-profession">Profissão <span class="label-required">*</span></label>
+          <input type="text" id="ob-profession" placeholder="Ex: Eletricista, Designer, Consultor..." />
+        </div>
+        <div class="form-field">
+          <label for="ob-company">Empresa <span class="label-unit">opcional</span></label>
+          <input type="text" id="ob-company" placeholder="Nome da empresa ou Autônomo" />
+        </div>
+
+        <div class="auth-error" id="auth-error-onboarding" hidden></div>
+
+        <button class="btn-auth-submit" id="auth-btn-submit-onboarding" onclick="authCompleteOnboarding()">
+          <i class="ph ph-check"></i> Concluir cadastro
+        </button>
+      </div>
+
+      <!-- ── View: Sucesso ── -->
+      <div id="auth-view-success" class="auth-view auth-success" hidden>
+        <div class="auth-success-icon"><i class="ph ph-check-circle"></i></div>
+        <h3 id="auth-success-name">Bem-vindo!</h3>
+        <p>Seus dados estão sincronizados.</p>
+      </div>
+
+      <p class="auth-terms" id="auth-modal-terms">
+        Dados salvos por <strong>90 dias</strong> no plano gratuito.
+        Assine o Orbit para manter para sempre.
+      </p>
+
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="assets/js/firebase-config.js"></script>
   <script src="assets/js/script.js"></script>
+  <script src="assets/js/auth.js"></script>
 
 </body>
 
