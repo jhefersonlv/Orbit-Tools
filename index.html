@@ -45,6 +45,10 @@
         <i class="ph ph-whatsapp-logo"></i>
         <span>Disparo WhatsApp</span>
       </a>
+      <a href="#" class="nav-item" data-tool="crm" onclick="loadTool('crm', this)">
+        <i class="ph ph-kanban"></i>
+        <span>CRM & Leads</span>
+      </a>
       <div class="nav-item nav-item--soon">
         <i class="ph ph-tag"></i>
         <span>Markup de Preços</span>
@@ -998,6 +1002,122 @@
         </div>
 
       </div><!-- /tool-disparo -->
+
+      <!-- ══════════════════ TOOL: CRM KANBAN ══════════════════ -->
+      <div class="tool-view hidden" id="tool-crm">
+        <div class="tool-header">
+          <div class="tool-header-left">
+            <h1 class="tool-title">CRM & Leads</h1>
+            <nav class="breadcrumb-mini">
+              <a href="#">Início</a>
+              <i class="ph ph-caret-right"></i>
+              <span class="breadcrumb-current-mini">CRM & Leads</span>
+            </nav>
+          </div>
+        </div>
+
+        <p class="tool-desc">Gerencie seus contatos do WhatsApp nas etapas de venda e mantenha o histórico das suas negociações.</p>
+
+        <!-- Botão flutuante (Dock) do CRM -->
+        <div class="floating-dock-wrapper">
+          <div class="dock-info">
+            <i class="ph ph-kanban" style="color: var(--c-blue);"></i>
+            <span class="dock-info-lbl" style="margin-left: 2px;">Novo lead</span>
+          </div>
+          <div class="dock-divider"></div>
+          <button class="dock-btn" onclick="disparoOpenModal()">
+            <i class="ph ph-plus"></i>
+            <span>Adicionar</span>
+          </button>
+        </div>
+
+        <!-- Board Kanban -->
+        <div class="crm-board-wrapper">
+          <div class="crm-board">
+            
+            <div class="crm-col" data-stage="novo">
+              <div class="crm-col-header">
+                <div><span class="crm-badge crm-badge--novo">Novo</span></div>
+                <span class="crm-col-count" id="count-novo">0</span>
+              </div>
+              <div class="crm-col-body" id="col-novo"></div>
+            </div>
+
+            <div class="crm-col" data-stage="contato">
+              <div class="crm-col-header">
+                <div><span class="crm-badge crm-badge--contato">1º Contato</span></div>
+                <span class="crm-col-count" id="count-contato">0</span>
+              </div>
+              <div class="crm-col-body" id="col-contato"></div>
+            </div>
+
+            <div class="crm-col" data-stage="orcamento">
+              <div class="crm-col-header">
+                <div><span class="crm-badge crm-badge--orcamento">Orçamento</span></div>
+                <span class="crm-col-count" id="count-orcamento">0</span>
+              </div>
+              <div class="crm-col-body" id="col-orcamento"></div>
+            </div>
+
+            <div class="crm-col" data-stage="followup">
+              <div class="crm-col-header">
+                <div><span class="crm-badge crm-badge--followup">Follow Up</span></div>
+                <span class="crm-col-count" id="count-followup">0</span>
+              </div>
+              <div class="crm-col-body" id="col-followup"></div>
+            </div>
+
+            <div class="crm-col" data-stage="fechado">
+              <div class="crm-col-header">
+                <div><span class="crm-badge crm-badge--fechado">Fechado</span></div>
+                <span class="crm-col-count" id="count-fechado">0</span>
+              </div>
+              <div class="crm-col-body" id="col-fechado"></div>
+            </div>
+
+            <div class="crm-col" data-stage="perdido">
+              <div class="crm-col-header">
+                <div><span class="crm-badge crm-badge--perdido">Perdido</span></div>
+                <span class="crm-col-count" id="count-perdido">0</span>
+              </div>
+              <div class="crm-col-body" id="col-perdido"></div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Modal Transição de Estágio -->
+        <div class="disparo-modal-overlay" id="crm-transition-modal" onclick="crmCloseTransitionModal(event)">
+          <div class="disparo-modal">
+            <h3 class="disparo-modal-title">Anotação da Mudança</h3>
+            <p style="font-size: 0.85rem; color: var(--c-text-muted); margin-bottom: 12px;" id="crm-transition-desc"></p>
+            <div class="form-field">
+              <label>Resumo / Nota <span class="label-unit">opcional</span></label>
+              <textarea id="crm-transition-note" rows="3" placeholder="Ex: Cliente pediu desconto de 5%..."></textarea>
+            </div>
+            <div class="disparo-modal-footer">
+              <button class="btn-reset" onclick="crmCloseTransitionModal()">Cancelar</button>
+              <button class="btn-calc" style="margin-top:0;width:auto;padding:10px 20px;" onclick="crmConfirmTransition()">
+                <i class="ph ph-check"></i> Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Histórico Timeline -->
+        <div class="disparo-modal-overlay" id="crm-history-modal" onclick="crmCloseHistoryModal(event)">
+          <div class="disparo-modal" style="max-width: 450px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <h3 class="disparo-modal-title" id="crm-history-title" style="margin-bottom:0">Histórico</h3>
+              <button class="btn-reset" onclick="crmCloseHistoryModal()" style="padding: 4px; display:flex;">
+                <i class="ph ph-x"></i>
+              </button>
+            </div>
+            <div class="crm-timeline" id="crm-history-list"></div>
+          </div>
+        </div>
+
+      </div><!-- /tool-crm -->
 
       <!-- ══════════════════ PLACEHOLDER: EM BREVE ══════════════════ -->
       <div class="tool-view hidden" id="tool-coming-soon">

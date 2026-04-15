@@ -873,7 +873,8 @@ function disparoRemoveContact(id) {
       <div class="disparo-empty-t">Nenhum contato selecionado</div>
       <div class="disparo-empty-s">Selecione um contato para personalizar e disparar a mensagem pelo WhatsApp</div>
     </div>`;
-  disparoUpdateStats(); disparoFilter();
+  disparoUpdateStats(); disparoFilter(); _disparoUpdateLimitBar();
+  if (typeof renderCRM === 'function') renderCRM();
 }
 
 /* ─── Troca de painel (Central / Templates) ─────────────────── */
@@ -922,6 +923,8 @@ function disparoAddContact() {
     group:    document.getElementById('d-fg').value.trim()   || '—',
     phone,
     status: 'pending',
+    stage: 'novo',
+    history: []
   };
 
   disparoCloseModal();
@@ -939,6 +942,7 @@ function disparoAddContact() {
       disparoFilter();
       disparoShowToast('Contato adicionado!');
       _disparoUpdateLimitBar();
+      if (typeof renderCRM === 'function') renderCRM();
     })
     .catch(() => { disparoShowToast('Erro ao salvar contato.', true); });
   } else {
@@ -949,6 +953,7 @@ function disparoAddContact() {
     disparoFilter();
     disparoShowToast('Contato adicionado! Faça login para salvar permanentemente.');
     _disparoUpdateLimitBar();
+    if (typeof renderCRM === 'function') renderCRM();
   }
 }
 
@@ -1398,6 +1403,8 @@ function loadDisparoContactsFromFirestore(uid) {
           group:   d.group   || '—',
           phone:   d.phone   || '',
           status:  d.status  || 'pending',
+          stage:   d.stage   || 'novo',
+          history: d.history || [],
         };
       });
       disparoUpdateStats();
@@ -1421,3 +1428,245 @@ function saveKmSettingsToFirestore() {
     updatedAt:    firebase.firestore.FieldValue.serverTimestamp(),
   });
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   CRM E LEADS (KANBAN INTEGRADO)
+   ═══════════════════════════════════════════════════════════════ */
+
+let crmDraggedCard = null;
+let crmPendingLeadId = null;
+let crmPendingStage = null;
+
+const CRM_STAGES = ['novo', 'contato', 'orcamento', 'followup', 'fechado', 'perdido'];
+
+function renderCRM() {
+  /* Reseta os contadores e as colunas */
+  CRM_STAGES.forEach(stage => {
+    const col = document.getElementById(`col-${stage}`);
+    const cnt = document.getElementById(`count-${stage}`);
+    if (col) col.innerHTML = '';
+    if (cnt) cnt.textContent = '0';
+  });
+
+  /* Mapeia os contatos de disparoContacts para as colunas */
+  disparoContacts.forEach(c => {
+    const stage = CRM_STAGES.includes(c.stage) ? c.stage : 'novo';
+    const col = document.getElementById(`col-${stage}`);
+    if (!col) return;
+
+    /* Aumenta contador do DB */
+    const cnt = document.getElementById(`count-${stage}`);
+    cnt.textContent = parseInt(cnt.textContent) + 1;
+
+    /* Extrai primeira linha da ultima nota, se houver */
+    let lastNoteLine = 'Sem histórico ainda.';
+    if (c.history && c.history.length > 0) {
+      const last = c.history[c.history.length - 1];
+      if (last.note) {
+        lastNoteLine = last.note.split('\n')[0];
+      } else {
+        lastNoteLine = `Movido para ${last.targetStage}`;
+      }
+    }
+
+    const [bg, fg] = disparoPal(c.id);
+
+    const card = document.createElement('div');
+    card.className = 'crm-card';
+    card.draggable = true;
+    card.dataset.id = c.id;
+
+    /* Drag Events */
+    card.addEventListener('dragstart', (e) => {
+      crmDraggedCard = card;
+      setTimeout(() => card.style.opacity = '0.5', 0);
+    });
+    card.addEventListener('dragend', () => {
+      crmDraggedCard = null;
+      card.style.opacity = '1';
+    });
+
+    card.innerHTML = `
+      <div class="crm-card-header">
+        <div>
+          <div class="crm-card-name">${c.name}</div>
+          <div class="crm-card-company">${c.company}</div>
+        </div>
+        <div class="crm-card-actions">
+          <button class="crm-btn-action" onclick="crmOpenHistoryModal('${c.id}')" title="Ver Histórico">
+            <i class="ph ph-clock-counter-clockwise"></i>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Dropdown Mobile Fallback -->
+      <select class="crm-stage-select" onchange="crmHandleSelectMove('${c.id}', this.value)">
+        <option value="novo" ${stage === 'novo' ? 'selected' : ''}>Novo Lead</option>
+        <option value="contato" ${stage === 'contato' ? 'selected' : ''}>1º Contato</option>
+        <option value="orcamento" ${stage === 'orcamento' ? 'selected' : ''}>Orçamento Enviado</option>
+        <option value="followup" ${stage === 'followup' ? 'selected' : ''}>Follow Up</option>
+        <option value="fechado" ${stage === 'fechado' ? 'selected' : ''}>Fechado</option>
+        <option value="perdido" ${stage === 'perdido' ? 'selected' : ''}>Não Convertido</option>
+      </select>
+
+      <div class="crm-card-footer" onclick="crmOpenHistoryModal('${c.id}')" style="cursor:pointer;" title="Clique para ver o histórico completo">
+        <i class="ph ph-note"></i> ${lastNoteLine}
+      </div>
+    `;
+
+    col.appendChild(card);
+  });
+}
+
+/* Inicializando Dropzones de Colunas */
+document.addEventListener('DOMContentLoaded', () => {
+  CRM_STAGES.forEach(stage => {
+    const col = document.getElementById(`col-${stage}`);
+    if (!col) return;
+    
+    col.addEventListener('dragover', e => {
+      e.preventDefault();
+      col.classList.add('drag-over');
+    });
+
+    col.addEventListener('dragleave', e => {
+      col.classList.remove('drag-over');
+    });
+
+    col.addEventListener('drop', e => {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      if (crmDraggedCard) {
+        const leadId = crmDraggedCard.dataset.id;
+        if (!leadId) return;
+        crmOpenTransitionModal(leadId, stage);
+      }
+    });
+  });
+});
+
+/* Modal Actions */
+function crmHandleSelectMove(leadId, targetStage) {
+  const c = disparoContacts.find(x => String(x.id) === String(leadId));
+  if (c && c.stage === targetStage) return; /* Mesma coluna */
+  crmOpenTransitionModal(leadId, targetStage);
+}
+
+const CRM_STAGE_LABELS = {
+  'novo': 'Novo Lead',
+  'contato': '1º Contato',
+  'orcamento': 'Orçamento Enviado',
+  'followup': 'Follow Up',
+  'fechado': 'Negócio Fechado',
+  'perdido': 'Não Convertido'
+};
+
+function crmOpenTransitionModal(leadId, targetStage) {
+  const c = disparoContacts.find(x => String(x.id) === String(leadId));
+  if (!c || c.stage === targetStage) return; /* Mesma coluna */
+
+  crmPendingLeadId = leadId;
+  crmPendingStage = targetStage;
+
+  const currentLabel = CRM_STAGE_LABELS[c.stage] || 'Desconhecido';
+  const targetLabel = CRM_STAGE_LABELS[targetStage] || 'Desconhecido';
+
+  document.getElementById('crm-transition-desc').innerHTML = 
+    `Movendo <strong>${c.name}</strong><br> De: <span class="badge-stage">${currentLabel}</span> → Para: <span class="badge-stage">${targetLabel}</span>`;
+  
+  document.getElementById('crm-transition-note').value = '';
+  document.getElementById('crm-transition-modal').classList.add('open');
+  document.getElementById('crm-transition-note').focus();
+}
+
+function crmCloseTransitionModal(e) {
+  if (e && e.target.id !== 'crm-transition-modal') return;
+  document.getElementById('crm-transition-modal').classList.remove('open');
+  crmPendingLeadId = null;
+  crmPendingStage = null;
+  
+  /* Retorna cards ao visual orginal pois o cancelamento os deixa no lugar visual onde caíram */
+  renderCRM(); 
+}
+
+function crmConfirmTransition() {
+  if (!crmPendingLeadId || !crmPendingStage) return;
+
+  const c = disparoContacts.find(x => String(x.id) === String(crmPendingLeadId));
+  if (!c) return;
+  
+  const noteText = document.getElementById('crm-transition-note').value.trim();
+  const oldStage = c.stage || 'novo';
+  
+  c.stage = crmPendingStage;
+  
+  const historyEntry = {
+    date: new Date().toISOString(),
+    oldStage: oldStage,
+    targetStage: crmPendingStage,
+    note: noteText,
+  };
+
+  if (!c.history) c.history = [];
+  c.history.push(historyEntry);
+
+  /* Atualiza BD */
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(c.id))
+      .update({
+        stage: c.stage,
+        history: c.history
+      }).catch(err => console.error("Erro salvando CRM", err));
+  }
+
+  document.getElementById('crm-transition-modal').classList.remove('open');
+  crmPendingLeadId = null;
+  crmPendingStage = null;
+
+  renderCRM();
+}
+
+/* Mostrar Modal de Historico */
+function crmOpenHistoryModal(leadId) {
+  const c = disparoContacts.find(x => String(x.id) === String(leadId));
+  if (!c) return;
+
+  document.getElementById('crm-history-title').textContent = `Histórico: ${c.name}`;
+  
+  const list = document.getElementById('crm-history-list');
+  if (!c.history || c.history.length === 0) {
+    list.innerHTML = `<p style="font-size:0.8rem;color:var(--c-muted);">Ainda não há histórico de interações para este lead.</p>`;
+  } else {
+    /* Ordena mais recente primeiro */
+    const reversed = [...c.history].reverse();
+    list.innerHTML = reversed.map(h => {
+      const d = new Date(h.date);
+      const time = d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+      const lblTarget = CRM_STAGE_LABELS[h.targetStage] || h.targetStage;
+      return `
+        <div class="timeline-event">
+          <div class="timeline-icon">
+             <i class="ph ph-git-commit"></i>
+          </div>
+          <div class="timeline-content">
+             <div class="timeline-meta">
+               <span>Movido para <strong>${lblTarget}</strong></span>
+               <span>${time}</span>
+             </div>
+             ${h.note ? `<div class="timeline-note">${h.note.replace(/\n/g, '<br>')}</div>` : `<div class="timeline-note" style="color:var(--c-muted);font-style:italic;">Sem anotação extra.</div>`}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  document.getElementById('crm-history-modal').classList.add('open');
+}
+
+function crmCloseHistoryModal(e) {
+  if (e && e.target.id !== 'crm-history-modal') return;
+  document.getElementById('crm-history-modal').classList.remove('open');
+}
+
+/* Garante a primeira renderização do painel ao carregar se já existirem contatos */
+window.addEventListener('load', () => { setTimeout(() => { renderCRM(); }, 500); });
