@@ -16,6 +16,7 @@
   <!-- Icons -->
   <script src="https://unpkg.com/@phosphor-icons/web@2.1.1/src/index.js" defer></script>
 
+  <link rel="icon" type="image/png" href="assets/img/favicon.png" />
   <link rel="stylesheet" href="assets/css/style.css" />
 </head>
 
@@ -35,16 +36,19 @@
         <i class="ph ph-car"></i>
         <span>Calculadora de KM</span>
       </a>
+      <a href="#" class="nav-item" data-tool="clt-pj" onclick="loadTool('clt-pj', this)">
+        <i class="ph ph-scales"></i>
+        <span>Custo CLT x PJ</span>
+      </a>
       <div class="nav-item nav-item--soon">
         <i class="ph ph-tag"></i>
         <span>Markup de Preços</span>
         <span class="nav-badge">Em breve</span>
       </div>
-      <div class="nav-item nav-item--soon">
-        <i class="ph ph-scales"></i>
-        <span>Custo CLT x PJ</span>
-        <span class="nav-badge">Em breve</span>
-      </div>
+      <a href="#" class="nav-item" data-tool="disparo" onclick="loadTool('disparo', this)">
+        <i class="ph ph-whatsapp-logo"></i>
+        <span>Disparo WhatsApp</span>
+      </a>
       <div class="nav-item nav-item--soon">
         <i class="ph ph-chart-line-up"></i>
         <span>Ponto de Equilíbrio</span>
@@ -178,7 +182,7 @@
                   </label>
                   <div class="input-currency">
                     <span>R$</span>
-                    <input type="number" id="fuel-price" value="5.80" min="0" step="0.01" />
+                    <input type="text" inputmode="decimal" id="fuel-price" value="5,80" placeholder="0,00" />
                   </div>
                 </div>
               </div>
@@ -198,7 +202,7 @@
                 </label>
                 <div class="input-currency">
                   <span>R$</span>
-                  <input type="number" id="rate-per-km" value="2.10" min="0" step="0.01" />
+                  <input type="text" inputmode="decimal" id="rate-per-km" value="2,10" placeholder="0,00" />
                 </div>
                 <p class="field-hint">
                   <i class="ph ph-lightbulb"></i>
@@ -483,6 +487,370 @@
         </div>
 
       </div>
+
+      <!-- ══════════════════ TOOL: CLT × PJ ══════════════════ -->
+      <div class="tool-view hidden" id="tool-clt-pj">
+
+        <div class="tool-header">
+          <div class="tool-header-left">
+            <h1 class="tool-title">Comparador CLT × PJ</h1>
+            <nav class="breadcrumb-mini">
+              <a href="#">Início</a>
+              <i class="ph ph-caret-right"></i>
+              <span class="breadcrumb-current-mini" id="clt-breadcrumb">Comparador</span>
+            </nav>
+          </div>
+          <div class="tool-header-right">
+            <nav class="pill-nav" role="tablist">
+              <button class="pill-item active" role="tab" aria-selected="true" onclick="switchCltTab('compare', this)">
+                Comparador
+              </button>
+              <button class="pill-item" role="tab" aria-selected="false" onclick="switchCltTab('history', this)">
+                Histórico
+                <span class="pill-badge" id="clt-history-badge" hidden></span>
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        <!-- ── PAINEL: COMPARADOR ── -->
+        <div class="tab-panel" id="panel-compare">
+
+        <p class="tool-desc">Descubra o custo real de contratar CLT versus pagar um prestador PJ — com todos os
+          encargos, provisões e benefícios. Encargos atualizados para 2026.</p>
+
+        <div class="tool-body tool-body--single">
+
+          <!-- Regime tributário -->
+          <div class="card">
+            <h2 class="card-title"><i class="ph ph-buildings"></i> Regime Tributário da Empresa</h2>
+            <div class="regime-selector">
+              <div class="regime-opt selected" id="opt-simples" onclick="selectCltRegime('simples')">
+                <div class="regime-dot"></div>
+                <div>
+                  <div class="regime-label">Simples Nacional</div>
+                  <div class="regime-sub">INSS patronal incluso no DAS — folha paga só FGTS 8%</div>
+                </div>
+              </div>
+              <div class="regime-opt" id="opt-lucro" onclick="selectCltRegime('lucro')">
+                <div class="regime-dot"></div>
+                <div>
+                  <div class="regime-label">Lucro Real / Presumido</div>
+                  <div class="regime-sub">INSS patronal 20% + Sistema S 5% + RAT 2% sobre a folha</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dados CLT -->
+          <div class="card">
+            <h2 class="card-title"><i class="ph ph-identification-card"></i> Dados do Funcionário CLT</h2>
+            <div class="form-grid form-grid--2">
+              <div class="form-field">
+                <label>Salário Bruto <span class="label-unit">R$/mês</span></label>
+                <input type="text" inputmode="decimal" id="clt-salario" placeholder="Ex.: 3.000,00" />
+              </div>
+              <div class="form-field">
+                <label>Vale Refeição / Alimentação <span class="label-unit">R$/mês</span></label>
+                <input type="text" inputmode="decimal" id="clt-vr" placeholder="Ex.: 550,00" />
+              </div>
+              <div class="form-field">
+                <label>Vale Transporte <span class="label-unit">custo líquido empresa</span></label>
+                <input type="text" inputmode="decimal" id="clt-vt" placeholder="Ex.: 220,00" />
+              </div>
+              <div class="form-field">
+                <label>Cesta Básica <span class="label-unit">R$/mês</span></label>
+                <input type="text" inputmode="decimal" id="clt-cesta" placeholder="Ex.: 200,00" />
+              </div>
+              <div class="form-field">
+                <label>Bônus / Comissão <span class="label-unit">média R$/mês</span></label>
+                <input type="text" inputmode="decimal" id="clt-bonus" placeholder="Ex.: 0,00" />
+              </div>
+              <div class="form-field">
+                <label>Outros benefícios <span class="label-unit">R$/mês</span></label>
+                <input type="text" inputmode="decimal" id="clt-outros" placeholder="Ex.: 0,00" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Dados PJ -->
+          <div class="card">
+            <h2 class="card-title"><i class="ph ph-file-text"></i> Contrato PJ</h2>
+            <div class="form-grid form-grid--2">
+              <div class="form-field">
+                <label>Valor mensal do contrato <span class="label-unit">nota fiscal</span></label>
+                <input type="text" inputmode="decimal" id="pj-valor" placeholder="Ex.: 4.500,00" />
+              </div>
+              <div class="form-field">
+                <label>Benefícios extras ao PJ <span class="label-unit">R$/mês, se houver</span></label>
+                <input type="text" inputmode="decimal" id="pj-benef" placeholder="Ex.: 0,00" />
+              </div>
+            </div>
+            <div class="field-hint" style="margin-top:14px;">
+              <i class="ph ph-info"></i>
+              <span>No PJ não há FGTS, 13º, férias nem encargos patronais. Atenção ao risco jurídico de vínculo
+                empregatício se houver exclusividade, subordinação e pessoalidade.</span>
+            </div>
+          </div>
+
+          <!-- Botão calcular -->
+          <button class="btn-calc" onclick="calcularCLTPJ()">
+            <i class="ph ph-calculator"></i> Comparar CLT × PJ
+          </button>
+
+          <!-- Resultados -->
+          <div class="clt-results" id="clt-results" hidden>
+
+            <div class="cmp-header">
+              <div class="cmp-col cmp-col--clt">
+                <div class="cmp-col-label">Custo Total CLT / mês</div>
+                <div class="cmp-col-value cmp-col-value--red" id="r-clt-total">—</div>
+                <div class="cmp-col-sub" id="r-clt-pct">—</div>
+              </div>
+              <div class="cmp-col cmp-col--pj">
+                <div class="cmp-col-label">Custo Total PJ / mês</div>
+                <div class="cmp-col-value cmp-col-value--green" id="r-pj-total">—</div>
+                <div class="cmp-col-sub">sem encargos patronais</div>
+              </div>
+              <div class="cmp-col cmp-col--diff">
+                <div class="cmp-col-label">Diferença mensal</div>
+                <div class="cmp-col-value cmp-col-value--amber" id="r-diff">—</div>
+                <div class="cmp-col-sub" id="r-diff-sub">—</div>
+              </div>
+            </div>
+
+            <div class="breakdown">
+              <div class="bk-section-title">Detalhamento linha a linha</div>
+              <div class="bk-row bk-row--head">
+                <div class="bk-label">Item</div>
+                <div class="bk-val"
+                  style="color:var(--c-red);font-size:.72rem;font-weight:700;text-transform:uppercase;">CLT</div>
+                <div class="bk-val"
+                  style="color:var(--c-green);font-size:.72rem;font-weight:700;text-transform:uppercase;">PJ</div>
+              </div>
+              <div class="bk-row">
+                <div class="bk-label">Salário bruto<small>Base de cálculo dos encargos</small></div>
+                <div class="bk-val bk-val--red" id="bd-salario">—</div>
+                <div class="bk-val bk-val--muted">—</div>
+              </div>
+              <div class="bk-row">
+                <div class="bk-label">INSS Patronal<small id="txt-inss-pat">20% sobre salário + comissão</small></div>
+                <div class="bk-val bk-val--red" id="bd-inss-pat">—</div>
+                <div class="bk-val bk-val--green">R$ 0,00</div>
+              </div>
+              <div class="bk-row">
+                <div class="bk-label">FGTS<small>8% sobre salário + comissão</small></div>
+                <div class="bk-val bk-val--red" id="bd-fgts">—</div>
+                <div class="bk-val bk-val--green">R$ 0,00</div>
+              </div>
+              <div class="bk-row" id="bk-row-sistema-s">
+                <div class="bk-label">Sistema S + RAT<small>~7% (Lucro Real/Presumido)</small></div>
+                <div class="bk-val bk-val--red" id="bd-sistema-s">—</div>
+                <div class="bk-val bk-val--green">R$ 0,00</div>
+              </div>
+              <div class="bk-row">
+                <div class="bk-label">Provisão 13º salário<small>8,33% / mês</small></div>
+                <div class="bk-val bk-val--red" id="bd-decimo">—</div>
+                <div class="bk-val bk-val--green">R$ 0,00</div>
+              </div>
+              <div class="bk-row">
+                <div class="bk-label">Provisão férias + 1/3<small>11,11% / mês</small></div>
+                <div class="bk-val bk-val--red" id="bd-ferias">—</div>
+                <div class="bk-val bk-val--green">R$ 0,00</div>
+              </div>
+              <div class="bk-row">
+                <div class="bk-label">Provisão multa rescisória FGTS<small>3,33% / mês (40% FGTS ÷ 12)</small></div>
+                <div class="bk-val bk-val--red" id="bd-multa">—</div>
+                <div class="bk-val bk-val--green">R$ 0,00</div>
+              </div>
+              <div class="bk-row">
+                <div class="bk-label">Vale Refeição / Alimentação</div>
+                <div class="bk-val bk-val--red" id="bd-vr">—</div>
+                <div class="bk-val bk-val--green">R$ 0,00</div>
+              </div>
+              <div class="bk-row">
+                <div class="bk-label">Vale Transporte</div>
+                <div class="bk-val bk-val--red" id="bd-vt">—</div>
+                <div class="bk-val bk-val--green">R$ 0,00</div>
+              </div>
+              <div class="bk-row">
+                <div class="bk-label">Cesta Básica</div>
+                <div class="bk-val bk-val--red" id="bd-cesta">—</div>
+                <div class="bk-val bk-val--green">R$ 0,00</div>
+              </div>
+              <div class="bk-row">
+                <div class="bk-label">Bônus / Comissão<small>Encargos também incidem sobre comissão</small></div>
+                <div class="bk-val bk-val--red" id="bd-bonus">—</div>
+                <div class="bk-val bk-val--green">R$ 0,00</div>
+              </div>
+              <div class="bk-row">
+                <div class="bk-label">Outros benefícios</div>
+                <div class="bk-val bk-val--red" id="bd-outros">—</div>
+                <div class="bk-val bk-val--green">R$ 0,00</div>
+              </div>
+              <div class="bk-row">
+                <div class="bk-label">Nota fiscal / contrato PJ</div>
+                <div class="bk-val bk-val--muted">—</div>
+                <div class="bk-val bk-val--green" id="bd-pj-nf">—</div>
+              </div>
+              <div class="bk-row">
+                <div class="bk-label">Benefícios extras PJ</div>
+                <div class="bk-val bk-val--muted">—</div>
+                <div class="bk-val bk-val--green" id="bd-pj-benef-extra">—</div>
+              </div>
+              <div class="bk-row bk-row--total">
+                <div class="bk-label">TOTAL MENSAL</div>
+                <div class="bk-val bk-val--red" id="bd-total-clt">—</div>
+                <div class="bk-val bk-val--green" id="bd-total-pj">—</div>
+              </div>
+            </div>
+
+            <div class="clt-alert" id="clt-alert">
+              <i class="ph ph-warning"></i>
+              <span id="clt-alert-text">—</span>
+            </div>
+
+            <div class="clt-legal-note">
+              <strong>Base legal 2026:</strong> Salário mínimo R$ 1.621 | Teto INSS R$ 8.475,55 | FGTS 8% (Lei 8.036/90)
+              | INSS Patronal 20% (Art. 22, Lei 8.212/91) | Provisão 13º 8,33% | Férias+1/3 11,11% | Multa FGTS 40%÷12.
+              Não substitui orientação de contador ou advogado trabalhista.
+            </div>
+
+            <div class="results-footer-actions">
+              <button class="btn-save-history" id="btn-save-clt" onclick="saveToHistoryCLT()">
+                <i class="ph ph-bookmark-simple"></i> Salvar no Histórico
+              </button>
+            </div>
+
+          </div><!-- /clt-results -->
+
+        </div><!-- /tool-body -->
+        </div><!-- /panel-compare -->
+
+        <!-- ── PAINEL: HISTÓRICO CLT ── -->
+        <div class="tab-panel hidden" id="panel-history-clt">
+          <div class="panel-header">
+            <div class="panel-header-text">
+              <h2 class="panel-title"><i class="ph ph-clock-clockwise"></i> Histórico de Comparações</h2>
+              <p class="panel-subtitle">Suas últimas comparações salvas nesta sessão.</p>
+            </div>
+            <button class="btn-clear-history" onclick="clearHistoryCLT()">
+              <i class="ph ph-trash"></i> Limpar
+            </button>
+          </div>
+          <div class="history-list" id="clt-history-list"></div>
+        </div><!-- /panel-history-clt -->
+
+      </div><!-- /tool-clt-pj -->
+
+      <!-- ══════════════════ TOOL: DISPARO WHATSAPP ══════════════════ -->
+      <div class="tool-view hidden" id="tool-disparo">
+
+        <div class="tool-header">
+          <div class="tool-header-left">
+            <h1 class="tool-title">Disparo WhatsApp</h1>
+            <nav class="breadcrumb-mini">
+              <a href="#">Início</a>
+              <i class="ph ph-caret-right"></i>
+              <span class="breadcrumb-current-mini">Disparo WhatsApp</span>
+            </nav>
+          </div>
+          <div class="tool-header-right">
+            <button class="btn-calc" style="margin-top:0;width:auto;padding:9px 18px;font-size:.85rem;" onclick="disparoOpenModal()">
+              <i class="ph ph-plus"></i> Novo Contato
+            </button>
+          </div>
+        </div>
+
+        <div class="disparo-layout">
+
+          <!-- SIDEBAR DE CONTATOS -->
+          <aside class="disparo-sidebar">
+            <div class="disparo-sidebar-top">
+              <div class="disparo-eyebrow">Visão geral</div>
+              <div class="disparo-stats-grid">
+                <div class="disparo-stat">
+                  <span class="disparo-stat-val disparo-stat-val--mid" id="dst">0</span>
+                  <span class="disparo-stat-lbl">Total</span>
+                </div>
+                <div class="disparo-stat">
+                  <span class="disparo-stat-val disparo-stat-val--warn" id="dsp">0</span>
+                  <span class="disparo-stat-lbl">Pendentes</span>
+                </div>
+                <div class="disparo-stat">
+                  <span class="disparo-stat-val disparo-stat-val--green" id="dss">0</span>
+                  <span class="disparo-stat-lbl">Enviados</span>
+                </div>
+              </div>
+              <div class="disparo-prog-row">
+                <div class="disparo-prog-bg">
+                  <div class="disparo-prog-fill" id="disparo-pf" style="width:0%"></div>
+                </div>
+                <span class="disparo-prog-lbl" id="disparo-pl">0 / 0</span>
+              </div>
+            </div>
+            <div class="disparo-search-wrap">
+              <div class="input-icon-wrap">
+                <i class="ph ph-magnifying-glass"></i>
+                <input type="text" class="disparo-search-input" id="disparo-si" placeholder="Buscar contato ou grupo..." oninput="disparoFilter()">
+              </div>
+            </div>
+            <div class="disparo-clist" id="disparo-cl"></div>
+          </aside>
+
+          <!-- PAINEL PRINCIPAL -->
+          <div class="disparo-main" id="disparo-main">
+            <div class="disparo-empty">
+              <div class="disparo-empty-icon"><i class="ph ph-chat-circle-dots"></i></div>
+              <div class="disparo-empty-t">Nenhum contato selecionado</div>
+              <div class="disparo-empty-s">Selecione um contato para personalizar e disparar a mensagem pelo WhatsApp</div>
+            </div>
+          </div>
+
+        </div><!-- /disparo-layout -->
+
+        <!-- Modal adicionar contato -->
+        <div class="disparo-modal-overlay" id="disparo-ov" onclick="disparoCloseOverlay(event)">
+          <div class="disparo-modal">
+            <h3 class="disparo-modal-title">Adicionar Contato</h3>
+            <div class="form-field">
+              <label>Nome completo <span class="label-unit">obrigatório</span></label>
+              <input type="text" id="d-fn" placeholder="Ex.: João Silva" />
+            </div>
+            <div class="form-grid form-grid--2" style="margin-top:12px;">
+              <div class="form-field">
+                <label>Empresa</label>
+                <input type="text" id="d-fc" placeholder="Ex.: Silva LTDA" />
+              </div>
+              <div class="form-field">
+                <label>Segmento</label>
+                <input type="text" id="d-fseg" placeholder="Ex.: Construção" />
+              </div>
+              <div class="form-field">
+                <label>Grupo de Origem</label>
+                <input type="text" id="d-fg" placeholder="Ex.: IBBC" />
+              </div>
+              <div class="form-field">
+                <label>WhatsApp <span class="label-unit">com DDI, obrigatório</span></label>
+                <input type="text" id="d-fp" placeholder="5511999999999" />
+              </div>
+            </div>
+            <div class="disparo-modal-footer">
+              <button class="btn-reset" onclick="disparoCloseModal()">Cancelar</button>
+              <button class="btn-calc" style="margin-top:0;width:auto;padding:10px 20px;" onclick="disparoAddContact()">
+                <i class="ph ph-plus"></i> Adicionar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toast -->
+        <div class="disparo-toast" id="disparo-toast">
+          <i class="ph ph-check-circle"></i>
+          <span id="disparo-tm">ok</span>
+        </div>
+
+      </div><!-- /tool-disparo -->
 
       <!-- ══════════════════ PLACEHOLDER: EM BREVE ══════════════════ -->
       <div class="tool-view hidden" id="tool-coming-soon">

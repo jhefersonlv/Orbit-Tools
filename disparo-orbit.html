@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orbit — Disparo de Mensagens</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #f9f9f9;
+      --bg2: #eef4fb;
+      --bg3: #ffffff;
+      --card: #ffffff;
+      --border: rgba(3, 15, 55, 0.08);
+      --border2: rgba(3, 15, 55, 0.14);
+      --accent: #037AC8;
+      --accent2: #02609e;
+      --accent-glow: rgba(3, 122, 200, 0.18);
+      --accent-dim: rgba(3, 122, 200, 0.08);
+      --text: #030F37;
+      --muted: #7a8aaa;
+      --muted2: #4a5a7a;
+      --danger: #e53e3e;
+      --warn: #d97706;
+      --success: #059669;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    body {
+      font-family: 'Lexend', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2.5rem;
+      height: 64px;
+      background: #030F37;
+      border-bottom: 1px solid rgba(3, 122, 200, 0.25);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .nav-logo img {
+      height: 26px;
+      object-fit: contain;
+      filter: brightness(0) invert(1);
+    }
+
+    .nav-logo-fallback {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.03em;
+      display: none;
+    }
+
+    .nav-logo-fallback span {
+      color: var(--accent);
+    }
+
+    .nav-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border2);
+      margin: 0 4px;
+    }
+
+    .nav-module {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.65);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pill {
+      font-size: 10px;
+      font-weight: 600;
+      background: rgba(3, 122, 200, 0.12);
+      color: #037AC8;
+      border: 1px solid rgba(3, 122, 200, 0.25);
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 9px 18px;
+      border-radius: var(--radius-sm);
+      font-family: 'Lexend', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.18s ease;
+      white-space: nowrap;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent2);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(3, 122, 200, 0.35);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+      box-shadow: none;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .btn-ghost:hover {
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.6);
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .btn-danger-soft {
+      background: rgba(229, 62, 62, 0.08);
+      color: var(--danger);
+      border: 1px solid rgba(229, 62, 62, 0.2);
+    }
+
+    .btn-danger-soft:hover {
+      background: rgba(229, 62, 62, 0.15);
+    }
+
+    .btn-success-soft {
+      background: rgba(5, 150, 105, 0.08);
+      color: var(--success);
+      border: 1px solid rgba(5, 150, 105, 0.2);
+    }
+
+    .btn-success-soft:hover {
+      background: rgba(5, 150, 105, 0.15);
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 316px 1fr;
+      height: calc(100vh - 64px);
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      border-right: 1px solid var(--border);
+      background: var(--bg2);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-top {
+      padding: 1.2rem 1.2rem 1rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .eyebrow {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.7rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      margin-bottom: 0.9rem;
+    }
+
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 9px 7px;
+      text-align: center;
+    }
+
+    .stat-val {
+      display: block;
+      font-size: 19px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .stat-val.ca {
+      color: var(--accent);
+    }
+
+    .stat-val.cw {
+      color: var(--warn);
+    }
+
+    .stat-val.cm {
+      color: var(--muted2);
+    }
+
+    .stat-lbl {
+      display: block;
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .prog-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .prog-bg {
+      flex: 1;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .prog-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      border-radius: 2px;
+      transition: width 0.5s ease;
+    }
+
+    .prog-lbl {
+      font-size: 11px;
+      color: var(--muted);
+      min-width: 76px;
+      text-align: right;
+    }
+
+    .search-wrap {
+      padding: 10px 1.2rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .search-inner {
+      position: relative;
+    }
+
+    .search-ic {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 13px;
+      height: 13px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px 8px 32px;
+      color: var(--text);
+      font-family: 'Lexend', sans-serif;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+    }
+
+    .search-input::placeholder {
+      color: var(--muted);
+    }
+
+    .clist {
+      flex: 1;
+      overflow-y: auto;
+      padding: 3px 0;
+    }
+
+    .clist::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    .clist::-webkit-scrollbar-thumb {
+      background: rgba(3, 15, 55, 0.12);
+      border-radius: 2px;
+    }
+
+    .ci {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 1.2rem;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: all 0.14s;
+    }
+
+    .ci:hover {
+      background: rgba(3, 122, 200, 0.05);
+    }
+
+    .ci.active {
+      background: var(--accent-dim);
+      border-left-color: var(--accent);
+    }
+
+    .ci.faded {
+      opacity: 0.45;
+    }
+
+    .av {
+      width: 33px;
+      height: 33px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .cn {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .cm-t {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .dot.p {
+      background: var(--warn);
+    }
+
+    .dot.s {
+      background: var(--accent);
+    }
+
+    /* MAIN */
+    .main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    .mheader {
+      padding: 1.4rem 2rem 1.2rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .mtitle {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .msub {
+      font-size: 12.5px;
+      color: var(--muted2);
+      margin-top: 3px;
+    }
+
+    .mbody {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.4rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .mbody::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    .mbody::-webkit-scrollbar-thumb {
+      background: rgba(3, 15, 55, 0.12);
+      border-radius: 2px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.2rem 1.4rem;
+    }
+
+    .hero-row {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+    }
+
+    .hero-av {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .hero-name {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .chips {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .chip {
+      font-size: 11px;
+      color: var(--muted2);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 10px;
+    }
+
+    .sec-lbl {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      margin-bottom: 8px;
+    }
+
+    .tbox {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .tta {
+      width: 100%;
+      background: transparent;
+      border: none;
+      padding: 1.2rem 1.4rem;
+      color: var(--text);
+      font-family: 'Lexend', sans-serif;
+      font-size: 13.5px;
+      line-height: 1.75;
+      outline: none;
+      resize: none;
+      min-height: 152px;
+      display: block;
+    }
+
+    .tbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 1.2rem;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 7px;
+      background: rgba(3, 15, 55, 0.03);
+    }
+
+    .var-chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .vc {
+      font-size: 11px;
+      font-weight: 500;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(3, 122, 200, 0.2);
+      border-radius: 20px;
+      padding: 3px 10px;
+      cursor: pointer;
+      font-family: 'Lexend', sans-serif;
+      transition: background 0.14s;
+    }
+
+    .vc:hover {
+      background: rgba(3, 122, 200, 0.15);
+    }
+
+    .cc {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .pbubble {
+      background: rgba(3, 122, 200, 0.05);
+      border: 1px solid rgba(3, 122, 200, 0.18);
+      border-radius: 14px 14px 14px 3px;
+      padding: 1rem 1.2rem;
+      font-size: 13.5px;
+      line-height: 1.75;
+      white-space: pre-wrap;
+      color: var(--text);
+      max-width: 600px;
+    }
+
+    .phint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 7px;
+    }
+
+    .arow {
+      display: flex;
+      gap: 9px;
+      flex-wrap: wrap;
+    }
+
+    .btn-send {
+      flex: 1;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 10px;
+      border-radius: 20px;
+    }
+
+    .bs {
+      background: rgba(3, 122, 200, 0.08);
+      color: var(--accent);
+      border: 1px solid rgba(3, 122, 200, 0.2);
+    }
+
+    .bp {
+      background: rgba(217, 119, 6, 0.08);
+      color: var(--warn);
+      border: 1px solid rgba(217, 119, 6, 0.2);
+    }
+
+    .empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--muted);
+      text-align: center;
+      padding: 3rem;
+    }
+
+    .empty-ic {
+      width: 50px;
+      height: 50px;
+      background: var(--card);
+      border: 1px solid var(--border2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 6px;
+    }
+
+    .empty-t {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .empty-s {
+      font-size: 12px;
+      max-width: 250px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 1.75rem;
+      right: 1.75rem;
+      background: var(--card);
+      border: 1px solid rgba(3, 122, 200, 0.3);
+      border-radius: var(--radius-sm);
+      padding: 11px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 20px rgba(3, 15, 55, 0.12);
+      transform: translateY(55px);
+      opacity: 0;
+      transition: all 0.28s cubic-bezier(.34, 1.56, .64, 1);
+      z-index: 200;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(3, 15, 55, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      backdrop-filter: blur(4px);
+    }
+
+    .overlay.show {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      padding: 1.75rem;
+      width: 450px;
+      max-width: calc(100vw - 2rem);
+      box-shadow: 0 24px 60px rgba(3, 15, 55, 0.2);
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.2rem;
+    }
+
+    .fg {
+      margin-bottom: 13px;
+    }
+
+    .fl {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 5px;
+    }
+
+    .fi {
+      width: 100%;
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      padding: 9px 12px;
+      color: var(--text);
+      font-family: 'Lexend', sans-serif;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .fi:focus {
+      border-color: var(--accent);
+    }
+
+    .fi::placeholder {
+      color: var(--muted);
+    }
+
+    .fr {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 11px;
+    }
+
+    .mfooter {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 1.4rem;
+    }
+
+    footer {
+      padding: 0.9rem 2.5rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--muted);
+      background: #030F37;
+      flex-shrink: 0;
+    }
+
+    footer a {
+      color: rgba(255, 255, 255, 0.55);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: var(--accent);
+    }
+
+    footer span {
+      color: rgba(255, 255, 255, 0.4);
+    }
+  </style>
+</head>
+
+<body>
+
+  <nav>
+    <div class="nav-logo">
+      <img src="https://use-orbit.wordvirtua.com/assets/logo_escrito.png" alt="Orbit"
+        onerror="this.style.display='none';document.getElementById('logofb').style.display='block'">
+      <span id="logofb" class="nav-logo-fallback">Orbit<span>.</span></span>
+      <div class="nav-divider"></div>
+      <div class="nav-module">Disparo de Mensagens <span class="pill">Beta</span></div>
+    </div>
+    <div class="nav-actions">
+      <a href="https://use-orbit.wordvirtua.com" class="btn btn-ghost" style="font-size:12px;padding:7px 13px;">←
+        Orbit</a>
+      <button class="btn btn-primary" onclick="openModal()">+ Novo Contato</button>
+    </div>
+  </nav>
+
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div class="eyebrow">Visão geral</div>
+        <div class="stats-grid">
+          <div class="stat"><span class="stat-val cm" id="st">0</span><span class="stat-lbl">Total</span></div>
+          <div class="stat"><span class="stat-val cw" id="sp">0</span><span class="stat-lbl">Pendentes</span></div>
+          <div class="stat"><span class="stat-val ca" id="ss">0</span><span class="stat-lbl">Enviados</span></div>
+        </div>
+        <div class="prog-row">
+          <div class="prog-bg">
+            <div class="prog-fill" id="pf" style="width:0%"></div>
+          </div>
+          <span class="prog-lbl" id="pl">0 / 0</span>
+        </div>
+      </div>
+      <div class="search-wrap">
+        <div class="search-inner">
+          <svg class="search-ic" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="5.5" cy="5.5" r="4" />
+            <path d="M9 9L12 12" stroke-linecap="round" />
+          </svg>
+          <input class="search-input" type="text" placeholder="Buscar contato ou grupo..." id="si" oninput="fc()">
+        </div>
+      </div>
+      <div class="clist" id="cl"></div>
+    </aside>
+
+    <main class="main">
+      <div class="mheader">
+        <div class="mtitle" id="mt">Selecione um contato</div>
+        <div class="msub" id="ms">Escolha um contato na lista para ver a mensagem personalizada</div>
+      </div>
+      <div class="mbody" id="mb">
+        <div class="empty">
+          <div class="empty-ic">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M3 4h14a2 2 0 012 2v8a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2z" />
+              <path d="M1 6l9 6 9-6" />
+            </svg>
+          </div>
+          <div class="empty-t">Nenhum contato selecionado</div>
+          <div class="empty-s">Selecione um contato para personalizar e disparar a mensagem pelo WhatsApp</div>
+        </div>
+      </div>
+      <footer>
+        <span>© 2025 Orbit by <a href="https://use-orbit.wordvirtua.com">WordVirtua</a></span>
+        <span><a href="https://wa.me/5511926635893">(11) 92663-5893</a></span>
+      </footer>
+    </main>
+  </div>
+
+  <div class="overlay" id="ov" onclick="co(event)">
+    <div class="modal">
+      <div class="modal-title">Adicionar Contato</div>
+      <div class="fg"><label class="fl">Nome completo *</label><input class="fi" id="fn" type="text"
+          placeholder="Ex: João Silva"></div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Empresa</label><input class="fi" id="fc2" type="text"
+            placeholder="Ex: Silva LTDA"></div>
+        <div class="fg"><label class="fl">Segmento</label><input class="fi" id="fseg" type="text"
+            placeholder="Ex: Construção"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Grupo de Origem</label><input class="fi" id="fg2" type="text"
+            placeholder="Ex: IBBC"></div>
+        <div class="fg"><label class="fl">WhatsApp (DDI) *</label><input class="fi" id="fp" type="text"
+            placeholder="5511999999999"></div>
+      </div>
+      <div class="mfooter">
+        <button class="btn btn-ghost" onclick="cm()">Cancelar</button>
+        <button class="btn btn-primary" onclick="ac()">Adicionar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <circle cx="6.5" cy="6.5" r="5.5" fill="currentColor" opacity="0.18" />
+      <path d="M4 6.5l2 2 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"
+        stroke-linejoin="round" />
+    </svg>
+    <span id="tm">ok</span>
+  </div>
+
+  <script>
+    const PAL = [['#0d4a3a', '#00d4aa'], ['#0c2a4a', '#4fa8e8'], ['#3a0f2e', '#d47ab0'], ['#2d1a04', '#f0a040'], ['#1a1040', '#8b7fe8'], ['#0d2a20', '#3db87a']];
+    let contacts = [
+      { id: 1, name: 'Ricardo Mendes', company: 'Mendes Reformas', segment: 'Construção', group: 'IBBC', phone: '5511991234567', status: 'pending' },
+      { id: 2, name: 'Ana Paula Costa', company: 'Costa Limpeza', segment: 'Facilities', group: 'Evolua+', phone: '5511992345678', status: 'pending' },
+      { id: 3, name: 'Carlos Eduardo', company: 'CE Serviços', segment: 'Manutenção', group: 'IBBC', phone: '5511993456789', status: 'pending' },
+      { id: 4, name: 'Fernanda Lima', company: 'Lima & Cia', segment: 'Alimentação', group: 'Evolua+', phone: '5511994567890', status: 'sent' },
+      { id: 5, name: 'Roberto Santos', company: 'Santos Tech', segment: 'Tecnologia', group: 'IBBC', phone: '5511995678901', status: 'pending' },
+      { id: 6, name: 'Juliana Rocha', company: 'Rocha Eventos', segment: 'Eventos', group: 'Igreja', phone: '5511996789012', status: 'pending' },
+      { id: 7, name: 'Marcelo Vieira', company: 'MV Consultoria', segment: 'Consultoria', group: 'IBBC', phone: '5511997890123', status: 'pending' },
+      { id: 8, name: 'Patricia Nunes', company: 'PN Gestão', segment: 'RH', group: 'Evolua+', phone: '5511998901234', status: 'pending' },
+    ];
+    let sel = null, nid = 9;
+    const TMPL = `Olá, {nome}! Tudo bem?\n\nVi você no grupo {grupo} e queria me apresentar.\n\nSou o Jheferson da WordVirtua — desenvolvemos o Orbit, um sistema de governança feito para donos de empresas de serviços que querem sair das planilhas e ter controle real do negócio.\n\nVocê teria 15 minutos para eu te mostrar? Pode ser aqui pelo WhatsApp mesmo.`;
+
+    const init = n => n.split(' ').slice(0, 2).map(x => x[0]).join('').toUpperCase();
+    const pal = id => PAL[id % PAL.length];
+
+    function us() {
+      const t = contacts.length, s = contacts.filter(c => c.status === 'sent').length, p = t - s, pct = t ? Math.round(s / t * 100) : 0;
+      document.getElementById('st').textContent = t;
+      document.getElementById('ss').textContent = s;
+      document.getElementById('sp').textContent = p;
+      document.getElementById('pf').style.width = pct + '%';
+      document.getElementById('pl').textContent = s + ' / ' + t + ' enviados';
+    }
+
+    function rc(list) {
+      const el = document.getElementById('cl');
+      if (!list.length) { el.innerHTML = '<div style="padding:1.5rem;text-align:center;font-size:12px;color:var(--muted);">Nenhum resultado</div>'; return; }
+      el.innerHTML = list.map(c => {
+        const [bg, fg] = pal(c.id);
+        return `<div class="ci ${c.id === sel ? 'active' : ''} ${c.status === 'sent' ? 'faded' : ''}" onclick="sc(${c.id})">
+      <div class="av" style="background:${bg};color:${fg};">${init(c.name)}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="cn">${c.name}</div>
+        <div class="cm-t">${c.company} · ${c.group}</div>
+      </div>
+      <div class="dot ${c.status === 'sent' ? 's' : 'p'}"></div>
+    </div>`;
+      }).join('');
+    }
+
+    function fc() {
+      const q = document.getElementById('si').value.toLowerCase();
+      rc(contacts.filter(c => c.name.toLowerCase().includes(q) || c.company.toLowerCase().includes(q) || c.group.toLowerCase().includes(q)));
+    }
+
+    function gt() { const ta = document.getElementById('ta'); return ta ? ta.value : TMPL; }
+
+    function bm(c) {
+      return gt().replace(/{nome}/g, c.name.split(' ')[0]).replace(/{empresa}/g, c.company).replace(/{grupo}/g, c.group).replace(/{segmento}/g, c.segment);
+    }
+
+    function sc(id) {
+      sel = id;
+      const c = contacts.find(x => x.id === id); if (!c) return;
+      fc();
+      const [bg, fg] = pal(c.id);
+      const s = contacts.filter(x => x.status === 'sent').length, t = contacts.length, pct = t ? Math.round(s / t * 100) : 0;
+      document.getElementById('mt').innerHTML = c.name + `<span class="badge ${c.status === 'sent' ? 'bs' : 'bp'}">${c.status === 'sent' ? 'Enviado' : 'Pendente'}</span>`;
+      document.getElementById('ms').textContent = `${c.company} · ${c.segment} · ${c.group} · +${c.phone}`;
+      document.getElementById('mb').innerHTML = `
+    <div class="card hero-row">
+      <div class="hero-av" style="background:${bg};color:${fg};">${init(c.name)}</div>
+      <div>
+        <div class="hero-name">${c.name}</div>
+        <div class="chips">
+          <span class="chip">🏢 ${c.company}</span>
+          <span class="chip">🔧 ${c.segment}</span>
+          <span class="chip">👥 ${c.group}</span>
+          <span class="chip">📱 +${c.phone}</span>
+        </div>
+      </div>
+    </div>
+    <div class="prog-row"><div class="prog-bg"><div class="prog-fill" style="width:${pct}%"></div></div><span class="prog-lbl" style="color:var(--muted2);">${s} / ${t} (${pct}%)</span></div>
+    <div>
+      <div class="sec-lbl">Template da mensagem</div>
+      <div class="tbox">
+        <textarea class="tta" id="ta" oninput="lp(${id})">${TMPL}</textarea>
+        <div class="tbar">
+          <div class="var-chips">
+            <button class="vc" onclick="iv('{nome}')">+ nome</button>
+            <button class="vc" onclick="iv('{empresa}')">+ empresa</button>
+            <button class="vc" onclick="iv('{grupo}')">+ grupo</button>
+            <button class="vc" onclick="iv('{segmento}')">+ segmento</button>
+          </div>
+          <span class="cc" id="cc">${TMPL.length} chars</span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="sec-lbl">Preview — como ${c.name.split(' ')[0]} vai receber</div>
+      <div class="pbubble" id="pb">${bm(c)}</div>
+      <div class="phint">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="6" cy="6" r="5"/><path d="M6 4v3M6 8.5v.2" stroke-linecap="round"/></svg>
+        O WhatsApp abre com a mensagem pronta — você só aperta Enviar
+      </div>
+    </div>
+    <div class="arow">
+      <button class="btn btn-primary btn-send" onclick="sw(${id})">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378L.306 23.99l1.595-5.87a9.88 9.88 0 01-1.325-4.947C.577 6.34 5.94.999 12.43.999a9.82 9.82 0 016.97 2.886 9.82 9.82 0 012.893 6.965c-.003 5.45-4.437 9.884-9.875 9.884"/></svg>
+        Abrir no WhatsApp
+      </button>
+      ${c.status !== 'sent' ? `<button class="btn btn-success-soft" onclick="ms2(${id})">✓ Marcar enviado</button>` : `<button class="btn btn-ghost" onclick="mp(${id})">Desmarcar</button>`}
+      <button class="btn btn-danger-soft" onclick="rm(${id})">Remover</button>
+    </div>`;
+    }
+
+    function lp(id) {
+      const c = contacts.find(x => x.id === id); if (!c) return;
+      const pb = document.getElementById('pb'), cc = document.getElementById('cc'), ta = document.getElementById('ta');
+      if (pb) pb.textContent = bm(c);
+      if (cc && ta) cc.textContent = ta.value.length + ' chars';
+    }
+
+    function iv(v) {
+      const ta = document.getElementById('ta'); if (!ta) return;
+      const s = ta.selectionStart, e = ta.selectionEnd;
+      ta.value = ta.value.slice(0, s) + v + ta.value.slice(e);
+      ta.selectionStart = ta.selectionEnd = s + v.length; ta.focus();
+      if (sel) lp(sel);
+    }
+
+    function sw(id) {
+      const c = contacts.find(x => x.id === id); if (!c) return;
+      const phone = c.phone.replace(/\D/g, '');
+      const msg = bm(c);
+      const url = 'https://api.whatsapp.com/send?phone=' + phone + '&text=' + encodeURIComponent(msg);
+      window.open(url, '_blank');
+      ms2(id); nt('WhatsApp aberto! Só apertar Enviar.');
+    }
+
+    function ms2(id) { const c = contacts.find(x => x.id === id); if (c) c.status = 'sent'; us(); sc(id); fc(); }
+    function mp(id) { const c = contacts.find(x => x.id === id); if (c) c.status = 'pending'; us(); sc(id); fc(); }
+
+    function rm(id) {
+      contacts = contacts.filter(c => c.id !== id); sel = null;
+      document.getElementById('mt').textContent = 'Selecione um contato';
+      document.getElementById('ms').textContent = 'Escolha um contato na lista para ver a mensagem personalizada';
+      document.getElementById('mb').innerHTML = `<div class="empty"><div class="empty-ic"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h14a2 2 0 012 2v8a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2z"/><path d="M1 6l9 6 9-6"/></svg></div><div class="empty-t">Nenhum contato selecionado</div><div class="empty-s">Selecione um contato para personalizar e disparar a mensagem</div></div>`;
+      us(); fc();
+    }
+
+    function openModal() { document.getElementById('ov').classList.add('show'); }
+    function cm() { document.getElementById('ov').classList.remove('show');['fn', 'fc2', 'fseg', 'fg2', 'fp'].forEach(i => { document.getElementById(i).value = ''; }); }
+    function co(e) { if (e.target.id === 'ov') cm(); }
+
+    function ac() {
+      const name = document.getElementById('fn').value.trim(), phone = document.getElementById('fp').value.trim();
+      if (!name || !phone) { nt('Nome e WhatsApp são obrigatórios.', true); return; }
+      contacts.push({ id: nid++, name, company: document.getElementById('fc2').value.trim() || '—', segment: document.getElementById('fseg').value.trim() || '—', group: document.getElementById('fg2').value.trim() || '—', phone, status: 'pending' });
+      cm(); us(); fc(); nt('Contato adicionado!');
+    }
+
+    function nt(msg, err = false) {
+      const el = document.getElementById('toast');
+      document.getElementById('tm').textContent = msg;
+      el.style.borderColor = err ? 'rgba(229,62,62,0.3)' : 'rgba(3,122,200,0.3)';
+      el.style.color = err ? 'var(--danger)' : 'var(--accent)';
+      el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 3000);
+    }
+
+    us(); fc();
+  </script>
+</body>
+
+</html>
