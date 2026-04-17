@@ -37,6 +37,10 @@
         <i class="ph ph-kanban"></i>
         <span>CRM & Leads</span>
       </a>
+      <a href="#" class="nav-item" data-tool="clientes" onclick="loadTool('clientes', this)">
+        <i class="ph ph-users-three"></i>
+        <span>Clientes</span>
+      </a>
       <a href="#" class="nav-item" data-tool="sched" id="nav-item-sched" onclick="loadTool('sched', this)" hidden>
         <i class="ph ph-calendar-blank"></i>
         <span>Agendamentos</span>
@@ -53,6 +57,7 @@
         <i class="ph ph-car"></i>
         <span>Calculadora de KM</span>
       </a>
+
 
 
 
@@ -1014,6 +1019,30 @@
         <p class="tool-desc">Gerencie seus contatos do WhatsApp nas etapas de venda e mantenha o histórico das suas
           negociações.</p>
 
+        <!-- ── Insights de Inatividade (Governança) ─────────────── -->
+        <div class="crm-insights-wrap" id="crm-insights">
+          <!-- Preenchido dinamicamente por crmRenderInsights() em crm.js -->
+        </div>
+
+        <!-- ── Relatório de Ressurreição ─────────────────────────── -->
+        <details class="crm-resurrection-details">
+          <summary class="crm-resurrection-summary">
+            <i class="ph ph-skull"></i>
+            Relatório de Ressurreição
+            <span class="crm-resurrection-badge" id="crm-resurrection-badge"></span>
+          </summary>
+          <div class="crm-resurrection-body">
+            <p class="crm-resurrection-desc">
+              Clientes sem compra há mais de 1 ano — prontos para uma mensagem de reativação.
+            </p>
+            <div id="crm-resurrection-list">
+              <p class="crm-resurrection-empty">
+                <i class="ph ph-confetti"></i> Nenhum cliente inativo há mais de 1 ano.
+              </p>
+            </div>
+          </div>
+        </details>
+
         <!-- Botão flutuante (Dock) do CRM -->
         <div class="floating-dock-wrapper">
           <div class="dock-info">
@@ -1063,9 +1092,14 @@
               <div class="crm-col-body" id="col-followup"></div>
             </div>
 
-            <div class="crm-col" data-stage="fechado">
-              <div class="crm-col-header">
-                <div><span class="crm-badge crm-badge--fechado">Fechado</span></div>
+            <div class="crm-col crm-col--fechado" data-stage="fechado">
+              <div class="crm-col-header crm-col-header--fechado">
+                <div>
+                  <span class="crm-badge crm-badge--fechado">
+                    <i class="ph ph-trophy"></i> Fechado
+                  </span>
+                  <div class="crm-col-subtitle">Vira Cliente</div>
+                </div>
                 <span class="crm-col-count" id="count-fechado">0</span>
               </div>
               <div class="crm-col-body" id="col-fechado"></div>
@@ -1085,33 +1119,25 @@
         <!-- Modal Transição de Estágio -->
         <div class="disparo-modal-overlay" id="crm-transition-modal" onclick="crmCloseTransitionModal(event)">
           <div class="disparo-modal">
-            <h3 class="disparo-modal-title">Anotação da Mudança</h3>
+            <h3 class="disparo-modal-title" id="crm-transition-title">Anotação da Mudança</h3>
             <p style="font-size: 0.85rem; color: var(--c-text-muted); margin-bottom: 12px;" id="crm-transition-desc">
             </p>
+            <!-- Aviso: só aparece quando destino = fechado -->
+            <div class="crm-transition-client-alert" id="crm-transition-client-alert" hidden>
+              <i class="ph ph-trophy"></i>
+              <span>Este lead será <strong>promovido a Cliente</strong> automaticamente.</span>
+            </div>
             <div class="form-field">
               <label>Resumo / Nota <span class="label-unit">opcional</span></label>
               <textarea id="crm-transition-note" rows="3" placeholder="Ex: Cliente pediu desconto de 5%..."></textarea>
             </div>
             <div class="disparo-modal-footer">
               <button class="btn-reset" onclick="crmCloseTransitionModal()">Cancelar</button>
-              <button class="btn-calc" style="margin-top:0;width:auto;padding:10px 20px;"
-                onclick="crmConfirmTransition()">
+              <button class="btn-calc" id="crm-transition-confirm-btn"
+                style="margin-top:0;width:auto;padding:10px 20px;" onclick="crmConfirmTransition()">
                 <i class="ph ph-check"></i> Salvar
               </button>
             </div>
-          </div>
-        </div>
-
-        <!-- Modal Histórico Timeline -->
-        <div class="disparo-modal-overlay" id="crm-history-modal" onclick="crmCloseHistoryModal(event)">
-          <div class="disparo-modal" style="max-width: 450px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-              <h3 class="disparo-modal-title" id="crm-history-title" style="margin-bottom:0">Histórico</h3>
-              <button class="btn-reset" onclick="crmCloseHistoryModal()" style="padding: 4px; display:flex;">
-                <i class="ph ph-x"></i>
-              </button>
-            </div>
-            <div class="crm-timeline" id="crm-history-list"></div>
           </div>
         </div>
 
@@ -1284,6 +1310,104 @@
 
       </div><!-- /tool-sched -->
 
+      <!-- ══════════════════ TOOL: CLIENTES ══════════════════ -->
+      <div class="tool-view hidden" id="tool-clientes">
+
+        <div class="tool-header">
+          <div class="tool-header-left">
+            <h1 class="tool-title"><i class="ph ph-users-three"></i> Clientes</h1>
+            <p class="tool-subtitle">Base consolidada de clientes confirmados</p>
+          </div>
+        </div>
+
+        <!-- Dashboard de Cobranças Próximas -->
+        <div id="plan-billing-dashboard" class="billing-dashboard" hidden></div>
+
+        <!-- Toolbar: filtros + ordenação -->
+        <div class="clientes-toolbar">
+          <div class="clientes-filter-chips" role="group" aria-label="Filtrar clientes">
+            <button class="clientes-chip clientes-chip--active" data-filter="all"
+              onclick="clientesSetFilter('all', this)">
+              <i class="ph ph-users-three"></i> Todos
+              <span class="clientes-chip-count" id="clientes-count-all"></span>
+            </button>
+            <button class="clientes-chip" data-filter="active_30" onclick="clientesSetFilter('active_30', this)">
+              <i class="ph ph-check-circle" style="color:#16a34a;"></i> Ativos (30d)
+              <span class="clientes-chip-count" id="clientes-count-active30"></span>
+            </button>
+            <button class="clientes-chip" data-filter="active" onclick="clientesSetFilter('active', this)">
+              <i class="ph ph-clock" style="color:#2563eb;"></i> Ativos (90d)
+              <span class="clientes-chip-count" id="clientes-count-active"></span>
+            </button>
+            <button class="clientes-chip" data-filter="risk" onclick="clientesSetFilter('risk', this)">
+              <i class="ph ph-warning" style="color:#d97706;"></i> Em Risco
+              <span class="clientes-chip-count" id="clientes-count-risk"></span>
+            </button>
+            <button class="clientes-chip" data-filter="asleep" onclick="clientesSetFilter('asleep', this)">
+              <i class="ph ph-hourglass" style="color:#ea580c;"></i> Adormecidos
+              <span class="clientes-chip-count" id="clientes-count-asleep"></span>
+            </button>
+            <button class="clientes-chip" data-filter="dead" onclick="clientesSetFilter('dead', this)">
+              <i class="ph ph-skull" style="color:#dc2626;"></i> Inativos (+1a)
+              <span class="clientes-chip-count" id="clientes-count-dead"></span>
+            </button>
+            <button class="clientes-chip" data-filter="birthdays" onclick="clientesSetFilter('birthdays', this)">
+              <i class="ph ph-cake" style="color:#7c3aed;"></i> Aniversariantes
+              <span class="clientes-chip-count" id="clientes-count-bday"></span>
+            </button>
+          </div>
+
+          <div class="clientes-sort-wrap">
+            <i class="ph ph-sort-ascending"></i>
+            <select class="clientes-sort-select" id="clientes-sort-select" onchange="clientesSetSort(this.value)">
+              <option value="last_visit">Última visita</option>
+              <option value="name_az">Nome A→Z</option>
+              <option value="name_za">Nome Z→A</option>
+              <option value="spent_desc">Maior gasto</option>
+              <option value="freq">Frequência</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="clientes-table-wrap" class="clientes-table-wrap">
+          <div class="clientes-empty">
+            <i class="ph ph-users-three"></i>
+            <p>Nenhum cliente ainda. Mova um lead para <strong>Fechado</strong> no CRM ou conclua um agendamento.</p>
+          </div>
+        </div>
+
+      </div><!-- /tool-clientes -->
+
+      <!-- Modal: Promover a Cliente (via CRM manual) -->
+      <div class="disparo-modal-overlay" id="crm-promote-modal-ov" role="dialog" aria-modal="true"
+        onclick="if(event.target===this) crmPromoteModalClose()">
+        <div class="disparo-modal" style="max-width:420px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 class="disparo-modal-title" style="margin:0;"><i class="ph ph-trophy"></i> Promover a Cliente</h3>
+            <button class="disparo-modal-close" onclick="crmPromoteModalClose()" aria-label="Fechar">
+              <i class="ph ph-x"></i>
+            </button>
+          </div>
+          <p class="crm-promote-desc">
+            <i class="ph ph-info"></i>
+            Este lead será convertido em <strong>Cliente</strong> na base de Clientes.
+            A ação é registrada no histórico de governança.
+          </p>
+          <div style="margin-bottom:12px;">
+            <label class="disparo-label" for="crm-promote-note">Observação (opcional)</label>
+            <textarea class="disparo-input" id="crm-promote-note" rows="2" style="resize:vertical;"
+              placeholder="Ex: Assinou contrato, pagamento confirmado…"></textarea>
+          </div>
+          <p style="color:#ef4444;font-size:0.8rem;margin:0 0 8px;" id="crm-promote-error" hidden></p>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
+            <button class="disparo-btn-secondary" onclick="crmPromoteModalClose()">Cancelar</button>
+            <button class="disparo-btn" id="crm-promote-save-btn" onclick="crmPromoteConfirm()">
+              <i class="ph ph-trophy"></i> Confirmar
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- ══════════════════ TOOL: ADMIN ══════════════════ -->
       <div class="tool-view hidden" id="tool-admin">
 
@@ -1375,6 +1499,21 @@
             </table>
           </div>
 
+          <!-- ── Governança de Dados ─────────────────────────────── -->
+          <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--c-border,#e5e7eb);">
+            <h3 style="font-size:0.85rem;font-weight:600;margin-bottom:4px;">
+              <i class="ph ph-database"></i> Governança de Dados — CRM
+            </h3>
+            <p style="font-size:0.8rem;color:var(--c-text-muted,#6b7280);margin-bottom:12px;">
+              Migre contatos de <code>disparo_contacts</code> para a coleção centralizada <code>customers</code>.
+              Execute uma única vez por conta. A coleção original não será apagada (backup automático).
+            </p>
+            <button class="btn-reset" style="border:1px solid var(--c-border);padding:8px 16px;font-size:0.82rem;"
+              onclick="crmMigrateFromDisparo(currentUser && currentUser.uid, currentUser && currentUser.uid)">
+              <i class="ph ph-arrow-circle-up"></i> Migrar disparo_contacts → customers
+            </button>
+          </div>
+
         </div>
       </div><!-- /tool-admin -->
 
@@ -1402,6 +1541,114 @@
 
     </main>
 
+    <!-- ══ MODAL GLOBAL: Plano de Assinatura ══ -->
+    <div class="disparo-modal-overlay" id="plan-modal-ov"
+         onclick="if(event.target===this) planModalClose()">
+      <div class="disparo-modal" style="max-width:480px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <h3 class="disparo-modal-title" style="margin:0;"><i class="ph ph-currency-circle-dollar"></i> Plano de Assinatura</h3>
+          <button class="disparo-modal-close" onclick="planModalClose()"><i class="ph ph-x"></i></button>
+        </div>
+        <p style="font-size:0.82rem;color:var(--c-text-muted);margin-bottom:16px;" id="plan-modal-client-name">—</p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="grid-column:1/-1;">
+            <label class="disparo-label">Nome do Plano</label>
+            <input class="disparo-input" id="plan-name" placeholder="Ex: Plano Gold" />
+          </div>
+          <div>
+            <label class="disparo-label">Créditos/Ciclo</label>
+            <input class="disparo-input" id="plan-credits" type="number" min="1" placeholder="4" />
+          </div>
+          <div>
+            <label class="disparo-label">Já usados (atual)</label>
+            <input class="disparo-input" id="plan-used" type="number" min="0" placeholder="0" />
+          </div>
+          <div>
+            <label class="disparo-label">Valor (R$)</label>
+            <input class="disparo-input" id="plan-price" type="number" min="0" step="0.01" placeholder="0,00" />
+          </div>
+          <div>
+            <label class="disparo-label">Próx. Cobrança</label>
+            <input class="disparo-input" id="plan-billing-date" type="date" />
+          </div>
+          <div style="grid-column:1/-1;">
+            <label class="disparo-label">Status</label>
+            <select class="disparo-input" id="plan-status">
+              <option value="active">Ativo</option>
+              <option value="overdue">Atrasado</option>
+              <option value="canceled">Cancelado</option>
+            </select>
+          </div>
+        </div>
+
+        <p style="color:#ef4444;font-size:0.8rem;margin:8px 0 0;" id="plan-modal-error" hidden></p>
+
+        <div class="disparo-modal-footer" style="margin-top:16px;display:flex;gap:8px;justify-content:space-between;align-items:center;">
+          <button class="btn-reset" id="plan-cancel-btn" style="color:#ef4444;" onclick="planCancelConfirm()" hidden>
+            <i class="ph ph-trash"></i> Cancelar Plano
+          </button>
+          <div style="display:flex;gap:8px;margin-left:auto;">
+            <button class="btn-reset" onclick="planModalClose()">Fechar</button>
+            <button class="btn-calc" id="plan-modal-save-btn" style="margin:0;width:auto;padding:10px 20px;" onclick="planModalSave()">
+              <i class="ph ph-floppy-disk"></i> Salvar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ MODAL GLOBAL: Perfil do Cliente / Histórico ══ -->
+    <div class="disparo-modal-overlay" id="crm-history-modal" onclick="crmCloseHistoryModal(event)">
+      <div class="crm-profile-modal">
+
+        <!-- Header do perfil -->
+        <div class="crm-profile-header">
+          <div class="crm-profile-avatar" id="crm-profile-avatar">J</div>
+          <div class="crm-profile-info">
+            <div class="crm-profile-name-row">
+              <span class="crm-profile-name" id="crm-profile-name">—</span>
+              <span class="crm-profile-badge" id="crm-profile-badge" hidden></span>
+            </div>
+            <div class="crm-profile-sub" id="crm-profile-sub">—</div>
+          </div>
+          <button class="crm-profile-close" onclick="crmCloseHistoryModal()">
+            <i class="ph ph-x"></i>
+          </button>
+        </div>
+
+        <!-- Stats: gasto, compras, frequência, última visita -->
+        <div class="crm-profile-stats">
+          <div class="crm-profile-stat">
+            <div class="crm-profile-stat-val" id="crm-stat-total">—</div>
+            <div class="crm-profile-stat-lbl">Total Gasto</div>
+          </div>
+          <div class="crm-profile-stat">
+            <div class="crm-profile-stat-val" id="crm-stat-count">—</div>
+            <div class="crm-profile-stat-lbl">Compras</div>
+          </div>
+          <div class="crm-profile-stat">
+            <div class="crm-profile-stat-val" id="crm-stat-freq">—</div>
+            <div class="crm-profile-stat-lbl">Frequência</div>
+          </div>
+          <div class="crm-profile-stat">
+            <div class="crm-profile-stat-val" id="crm-stat-last">—</div>
+            <div class="crm-profile-stat-lbl">Última Visita</div>
+          </div>
+        </div>
+
+        <!-- Dados de contato -->
+        <div class="crm-profile-details" id="crm-profile-details"></div>
+
+        <!-- Histórico -->
+        <div class="crm-profile-section-title">
+          <i class="ph ph-clock-counter-clockwise"></i> Histórico de Interações
+        </div>
+        <div class="crm-timeline" id="crm-history-list" style="max-height:280px;overflow-y:auto;"></div>
+
+      </div>
+    </div>
+
     <!-- ══ TOAST GLOBAL ══ -->
     <div class="disparo-toast" id="disparo-toast">
       <i class="ph ph-check-circle"></i>
@@ -1412,6 +1659,8 @@
     <div class="disparo-modal-overlay" id="disparo-ov" onclick="disparoCloseOverlay(event)">
       <div class="disparo-modal">
         <h3 class="disparo-modal-title" id="disparo-modal-title">Adicionar Contato</h3>
+
+        <!-- Identificação -->
         <div class="form-field">
           <label>Nome completo <span class="label-unit">obrigatório</span></label>
           <input type="text" id="d-fn" placeholder="Ex.: João Silva" />
@@ -1433,7 +1682,34 @@
             <label>WhatsApp <span class="label-unit">com DDI, obrigatório</span></label>
             <input type="text" id="d-fp" placeholder="5511999999999" />
           </div>
+          <div class="form-field">
+            <label>E-mail</label>
+            <input type="email" id="d-fe" placeholder="Ex.: joao@email.com" />
+          </div>
+          <div class="form-field">
+            <label>Aniversário</label>
+            <input type="date" id="d-fbday" />
+          </div>
         </div>
+
+        <!-- Governança / Histórico Comercial -->
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--c-border,#e5e7eb);">
+          <p
+            style="font-size:0.72rem;font-weight:600;color:var(--c-text-muted,#9ca3af);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;">
+            <i class="ph ph-chart-line-up"></i> Governança Comercial
+          </p>
+          <div class="form-grid form-grid--2">
+            <div class="form-field">
+              <label>Última Compra</label>
+              <input type="date" id="d-flpd" />
+            </div>
+            <div class="form-field">
+              <label>Total Gasto (R$)</label>
+              <input type="number" id="d-fts" placeholder="0,00" min="0" step="0.01" />
+            </div>
+          </div>
+        </div>
+
         <div class="disparo-modal-footer">
           <button class="btn-reset" onclick="disparoCloseModal()">Cancelar</button>
           <button class="btn-calc" id="disparo-modal-confirm-btn" style="margin-top:0;width:auto;padding:10px 20px;"
@@ -1693,6 +1969,101 @@
     </div>
   </div>
 
+  <!-- ══ MODAL: Vincular Agendamento ao CRM ══ -->
+  <div class="sched-booking-overlay" id="sched-link-modal-ov" onclick="if(event.target===this)schedLinkModalClose()">
+    <div class="sched-booking-modal" style="max-width:480px;">
+      <div class="sched-booking-modal-header">
+        <div>
+          <h3><i class="ph ph-user-plus"></i> Vincular ao CRM</h3>
+          <p id="sched-link-booking-info" style="font-size:.8rem;color:var(--c-light);margin:2px 0 0;font-weight:400;">
+          </p>
+        </div>
+        <button class="sched-booking-close" onclick="schedLinkModalClose()"><i class="ph ph-x"></i></button>
+      </div>
+
+      <div class="sched-booking-body">
+
+        <!-- Busca de cliente existente -->
+        <div class="form-field">
+          <label>Buscar cliente existente</label>
+          <div class="input-icon-wrap">
+            <i class="ph ph-magnifying-glass"></i>
+            <input type="text" id="sched-link-search" placeholder="Nome ou telefone…"
+              oninput="schedLinkSearch(this.value)" />
+          </div>
+        </div>
+
+        <!-- Resultados da busca -->
+        <div id="sched-link-results" class="sched-link-results">
+          <p class="sched-link-hint"><i class="ph ph-info"></i> Digite para buscar entre seus clientes cadastrados.</p>
+        </div>
+
+        <!-- Divisor -->
+        <div class="sched-link-divider">
+          <span>ou</span>
+        </div>
+
+        <!-- Criar novo cliente -->
+        <button class="btn-calc" style="width:100%;margin-top:0;" onclick="schedLinkCreateNew()">
+          <i class="ph ph-user-plus"></i> Criar novo cliente a partir deste agendamento
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MODAL: Governança — Registrar Venda ao Concluir ══ -->
+  <div class="sched-booking-overlay" id="sched-gov-modal-ov" onclick="if(event.target===this)schedGovModalClose()">
+    <div class="sched-booking-modal" style="max-width:420px;">
+      <div class="sched-booking-modal-header">
+        <div>
+          <h3><i class="ph ph-currency-circle-dollar"></i> Registrar Venda</h3>
+          <p id="sched-gov-client-name" style="font-size:.8rem;color:var(--c-light);margin:2px 0 0;font-weight:400;">
+          </p>
+        </div>
+        <button class="sched-booking-close" onclick="schedGovModalClose()"><i class="ph ph-x"></i></button>
+      </div>
+
+      <div class="sched-booking-body">
+
+        <p class="sched-gov-desc">
+          <i class="ph ph-check-circle" style="color:#10b981;"></i>
+          Agendamento concluído! Registre os dados para manter a Governança atualizada.
+        </p>
+
+        <div class="form-grid form-grid--2" style="margin-top:14px;">
+          <div class="form-field">
+            <label for="sched-gov-date">Data da compra <span class="label-unit">obrigatório</span></label>
+            <input type="date" id="sched-gov-date" />
+          </div>
+          <div class="form-field">
+            <label for="sched-gov-value">Valor desta venda <span class="label-unit">R$</span></label>
+            <input type="number" id="sched-gov-value" placeholder="0,00" min="0" step="0.01" />
+          </div>
+        </div>
+
+        <div class="sched-gov-total-row">
+          <i class="ph ph-chart-line-up"></i>
+          <span>Total acumulado do cliente:</span>
+          <strong id="sched-gov-current-total">R$ 0,00</strong>
+        </div>
+
+        <div class="auth-error" id="sched-gov-error" hidden></div>
+
+        <div class="sched-booking-modal-footer" style="margin-top:16px;">
+          <button class="btn-reset" onclick="schedGovModalClose()">
+            Pular por agora
+          </button>
+          <button class="btn-calc" id="sched-gov-save-btn" style="margin-top:0;width:auto;padding:10px 20px;"
+            onclick="schedGovSave()">
+            <i class="ph ph-check"></i> Salvar
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
   <!-- ══ MODAL GLOBAL: Agendamento ══ -->
   <div class="sched-booking-overlay" id="sched-booking-ov" onclick="schedCloseBookingOverlay(event)">
     <div class="sched-booking-modal">
@@ -1761,6 +2132,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="assets/js/firebase-config.js"></script>
+  <script src="assets/js/crm.js"></script>
   <script src="assets/js/script.js"></script>
   <script src="assets/js/admin.js"></script>
   <script src="assets/js/auth.js"></script>

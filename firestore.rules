@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ───────────────────────────────────────────────────────────
+       ORBIT TOOLS — Firestore Security Rules
+       WordVirtua · 2026
+
+       Modelo multi-tenant:
+         users/{uid}/...  → cada usuário acessa apenas os seus dados
+         Admins (plan = 'orbit') podem ler dados de outros UIDs via
+         tenant switcher — isso é gerenciado no front-end pelo campo
+         activeTenantUid; as regras aqui garantem que o admin
+         (currentUser) seja dono da conta raiz (users/{uid}).
+    ─────────────────────────────────────────────────────────────── */
+
+    /* ── Regra base: bloqueia tudo por padrão ──────────────────── */
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    /* ── Dados do próprio usuário ──────────────────────────────── */
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      /* ── customers (SSOT — CRM de Governança) ───────────────── */
+      match /customers/{customerId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+
+        /* Histórico de funil (subcoleção imutável por clientes) */
+        match /history/{entryId} {
+          allow read:   if request.auth != null && request.auth.uid == uid;
+          /* Escrita: apenas criação — ninguém apaga o audit trail */
+          allow create: if request.auth != null && request.auth.uid == uid;
+          allow update, delete: if false;
+        }
+      }
+
+      /* ── Agendamentos ─────────────────────────────────────────── */
+      match /sched_bookings/{bookingId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      match /sched_services/{serviceId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      match /sched_days/{dayId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      match /sched_config/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      /* ── Templates de Disparo ────────────────────────────────── */
+      match /disparo_templates/{tmplId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      /* ── Histórico de Calculadoras ───────────────────────────── */
+      match /km_history/{entryId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      match /clt_history/{entryId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      /* ── Configurações ───────────────────────────────────────── */
+      match /settings/{settingId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      /* ── disparo_contacts (legado — mantido como backup) ──────── */
+      match /disparo_contacts/{contactId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        /* Bloqueia novas escritas — use customers */
+        allow write: if false;
+      }
+    }
+  }
+}

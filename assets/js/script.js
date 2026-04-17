@@ -45,6 +45,10 @@ function loadTool(toolId, linkEl) {
   if (toolId === 'admin') {
     if (typeof admLoadUsers === 'function') admLoadUsers();
   }
+  if (toolId === 'clientes') {
+    if (typeof clientesRenderTable       === 'function') clientesRenderTable();
+    if (typeof planRenderBillingDashboard === 'function') planRenderBillingDashboard();
+  }
 
   if (window.innerWidth <= 768) closeSidebar();
 }
@@ -54,9 +58,9 @@ function loadTool(toolId, linkEl) {
    ═══════════════════════════════════════════════════════════════ */
 
 const KM_TAB_PANELS = {
-  calc:     { panel: 'panel-calc',     label: 'Calculadora' },
-  history:  { panel: 'panel-history',  label: 'Histórico'   },
-  settings: { panel: 'panel-settings', label: 'Ajustes'     },
+  calc: { panel: 'panel-calc', label: 'Calculadora' },
+  history: { panel: 'panel-history', label: 'Histórico' },
+  settings: { panel: 'panel-settings', label: 'Ajustes' },
 };
 
 function switchKmTab(tab, el) {
@@ -89,22 +93,22 @@ function switchKmTab(tab, el) {
    CALCULADORA DE DESLOCAMENTO
    ═══════════════════════════════════════════════════════════════ */
 
-let isRoundtrip  = false;
-let _lastCalc    = null;   // último cálculo realizado (para salvar no histórico)
+let isRoundtrip = false;
+let _lastCalc = null;   // último cálculo realizado (para salvar no histórico)
 
 /* ─── Toggle ida e volta ─────────────────────────────────────── */
 function toggleRoundtrip() {
   isRoundtrip = !isRoundtrip;
   const toggle = document.getElementById('roundtrip-toggle');
-  const label  = document.getElementById('roundtrip-label');
+  const label = document.getElementById('roundtrip-label');
   toggle.setAttribute('aria-checked', String(isRoundtrip));
   label.textContent = isRoundtrip ? 'Ida e Volta' : 'Somente Ida';
   updateKmPreview();
 }
 
 function updateKmPreview() {
-  const dist     = parseFloat(document.getElementById('distance').value);
-  const preview  = document.getElementById('km-preview');
+  const dist = parseFloat(document.getElementById('distance').value);
+  const preview = document.getElementById('km-preview');
   const previewVal = document.getElementById('km-preview-val');
   if (dist > 0) {
     previewVal.textContent = formatKm(isRoundtrip ? dist * 2 : dist);
@@ -118,11 +122,11 @@ document.getElementById('distance').addEventListener('input', updateKmPreview);
 
 /* ─── Cálculo principal ──────────────────────────────────────── */
 function calcularKM() {
-  const distance    = parseFloat(document.getElementById('distance').value)    || 0;
+  const distance = parseFloat(document.getElementById('distance').value) || 0;
   const consumption = parseFloat(document.getElementById('consumption').value) || 10;
-  const fuelPrice   = parseMasked('fuel-price')  || 5.80;
-  const ratePerKm   = parseMasked('rate-per-km') || 2.10;
-  const origin      = document.getElementById('origin').value.trim();
+  const fuelPrice = parseMasked('fuel-price') || 5.80;
+  const ratePerKm = parseMasked('rate-per-km') || 2.10;
+  const origin = document.getElementById('origin').value.trim();
   const destination = document.getElementById('destination').value.trim();
 
   if (distance <= 0) {
@@ -131,16 +135,16 @@ function calcularKM() {
     return;
   }
 
-  const totalKm  = isRoundtrip ? distance * 2 : distance;
+  const totalKm = isRoundtrip ? distance * 2 : distance;
   const realCost = (totalKm / consumption) * fuelPrice;
-  const charge   = totalKm * ratePerKm;
-  const profit   = charge - realCost;
+  const charge = totalKm * ratePerKm;
+  const profit = charge - realCost;
 
-  document.getElementById('result-cost').textContent   = formatBRL(realCost);
+  document.getElementById('result-cost').textContent = formatBRL(realCost);
   document.getElementById('result-charge').textContent = formatBRL(charge);
   document.getElementById('result-profit').textContent = formatBRL(profit);
 
-  const tripLabel  = isRoundtrip ? 'ida e volta' : 'somente ida';
+  const tripLabel = isRoundtrip ? 'ida e volta' : 'somente ida';
   const routeLabel = (origin && destination)
     ? `de <strong>${origin}</strong> até <strong>${destination}</strong>`
     : 'do trajeto informado';
@@ -163,35 +167,37 @@ function calcularKM() {
   document.getElementById('results-area').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   /* Guarda para o botão "Salvar no Histórico" */
-  _lastCalc = { origin, destination, totalKm, tripLabel, realCost, charge, profit,
-                ratePerKm, consumption, fuelPrice, savedAt: null };
+  _lastCalc = {
+    origin, destination, totalKm, tripLabel, realCost, charge, profit,
+    ratePerKm, consumption, fuelPrice, savedAt: null
+  };
 }
 
 /* ─── Resetar formulário ─────────────────────────────────────── */
 function resetCalc() {
-  document.getElementById('origin').value      = '';
+  document.getElementById('origin').value = '';
   document.getElementById('destination').value = '';
-  document.getElementById('distance').value    = '';
+  document.getElementById('distance').value = '';
   document.getElementById('consumption').value = '10';
-  document.getElementById('fuel-price').value  = '5,80';
+  document.getElementById('fuel-price').value = '5,80';
   document.getElementById('rate-per-km').value = '2,10';
   if (isRoundtrip) toggleRoundtrip();
   document.getElementById('results-area').hidden = true;
-  document.getElementById('km-preview').hidden   = true;
+  document.getElementById('km-preview').hidden = true;
   _lastCalc = null;
   document.getElementById('origin').focus();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 /* ─── Enter nos inputs dispara cálculo ───────────────────────── */
-['distance','consumption','fuel-price','rate-per-km'].forEach(id => {
+['distance', 'consumption', 'fuel-price', 'rate-per-km'].forEach(id => {
   document.getElementById(id).addEventListener('keydown', e => {
     if (e.key === 'Enter') calcularKM();
   });
 });
 
 /* ─── Salva settings ao alterar consumo/combustível/taxa ──────── */
-['consumption','fuel-price','rate-per-km'].forEach(id => {
+['consumption', 'fuel-price', 'rate-per-km'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => {
     clearTimeout(_settingsSaveTimer);
     _settingsSaveTimer = setTimeout(() => {
@@ -216,18 +222,18 @@ function saveToHistory() {
   /* Persiste no Firestore se logado */
   if (typeof currentUser !== 'undefined' && currentUser) {
     db.collection('users').doc(currentUser.uid).collection('km_history').add({
-      origin:      entry.origin,
+      origin: entry.origin,
       destination: entry.destination,
-      totalKm:     entry.totalKm,
-      tripLabel:   entry.tripLabel,
-      realCost:    entry.realCost,
-      charge:      entry.charge,
-      profit:      entry.profit,
-      ratePerKm:   entry.ratePerKm,
+      totalKm: entry.totalKm,
+      tripLabel: entry.tripLabel,
+      realCost: entry.realCost,
+      charge: entry.charge,
+      profit: entry.profit,
+      ratePerKm: entry.ratePerKm,
       consumption: entry.consumption,
-      fuelPrice:   entry.fuelPrice,
-      savedAt:     firebase.firestore.FieldValue.serverTimestamp(),
-      expiresAt:   new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+      fuelPrice: entry.fuelPrice,
+      savedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
     }).then(ref => { entry.firestoreId = ref.id; });
   }
 
@@ -238,7 +244,7 @@ function saveToHistory() {
   const btn = document.querySelector('.btn-save-history');
   const orig = btn.innerHTML;
   btn.innerHTML = '<i class="ph ph-check"></i> Salvo!';
-  btn.disabled  = true;
+  btn.disabled = true;
   setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 1800);
 }
 
@@ -289,12 +295,12 @@ function renderHistory() {
       ? `${entry.origin} → ${entry.destination}`
       : 'Trajeto sem endereço';
 
-    const _now1  = new Date();
+    const _now1 = new Date();
     const _isToday1 = entry.savedAt.toDateString() === _now1.toDateString();
     const time = _isToday1
       ? entry.savedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
       : entry.savedAt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' +
-        entry.savedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      entry.savedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const profitClass = entry.profit >= 0 ? 'history-profit--pos' : 'history-profit--neg';
 
     card.innerHTML = `
@@ -356,17 +362,17 @@ let _kmTotal = 1.46;
 let _settingsSaveTimer = null;
 
 function recalcKmTable() {
-  const fuel         = parseFloat(document.getElementById('ki-fuel').value)         || 0;
-  const tires        = parseFloat(document.getElementById('ki-tires').value)        || 0;
-  const maintenance  = parseFloat(document.getElementById('ki-maintenance').value)  || 0;
-  const insurance    = parseFloat(document.getElementById('ki-insurance').value)    || 0;
+  const fuel = parseFloat(document.getElementById('ki-fuel').value) || 0;
+  const tires = parseFloat(document.getElementById('ki-tires').value) || 0;
+  const maintenance = parseFloat(document.getElementById('ki-maintenance').value) || 0;
+  const insurance = parseFloat(document.getElementById('ki-insurance').value) || 0;
   const depreciation = parseFloat(document.getElementById('ki-depreciation').value) || 0;
 
   const subtotal = fuel + tires + maintenance + insurance;
-  _kmTotal       = subtotal + depreciation;
+  _kmTotal = subtotal + depreciation;
 
   document.getElementById('ki-subtotal').textContent = formatBRL(subtotal);
-  document.getElementById('ki-total').textContent    = formatBRL(_kmTotal);
+  document.getElementById('ki-total').textContent = formatBRL(_kmTotal);
 
   /* Salva settings no Firestore com debounce de 1,5s */
   clearTimeout(_settingsSaveTimer);
@@ -376,10 +382,10 @@ function recalcKmTable() {
 }
 
 function resetKmTable() {
-  document.getElementById('ki-fuel').value         = KM_DEFAULTS.fuel;
-  document.getElementById('ki-tires').value        = KM_DEFAULTS.tires;
-  document.getElementById('ki-maintenance').value  = KM_DEFAULTS.maintenance;
-  document.getElementById('ki-insurance').value    = KM_DEFAULTS.insurance;
+  document.getElementById('ki-fuel').value = KM_DEFAULTS.fuel;
+  document.getElementById('ki-tires').value = KM_DEFAULTS.tires;
+  document.getElementById('ki-maintenance').value = KM_DEFAULTS.maintenance;
+  document.getElementById('ki-insurance').value = KM_DEFAULTS.insurance;
   document.getElementById('ki-depreciation').value = KM_DEFAULTS.depreciation;
   recalcKmTable();
 }
@@ -395,8 +401,8 @@ function applyKmRate() {
   /* Pulso no campo aplicado */
   setTimeout(() => {
     const wrap = document.getElementById('rate-per-km').closest('.input-currency');
-    wrap.style.transition  = 'box-shadow 0.2s';
-    wrap.style.boxShadow   = '0 0 0 4px rgba(20,71,230,0.25)';
+    wrap.style.transition = 'box-shadow 0.2s';
+    wrap.style.boxShadow = '0 0 0 4px rgba(20,71,230,0.25)';
     setTimeout(() => { wrap.style.boxShadow = ''; }, 1200);
   }, 200);
 }
@@ -405,9 +411,9 @@ function applyKmRate() {
    COMPARADOR CLT × PJ
    ═══════════════════════════════════════════════════════════════ */
 
-let cltPjRegime  = 'simples';
+let cltPjRegime = 'simples';
 let _lastCltCalc = null;
-let cltHistory   = [];
+let cltHistory = [];
 
 /* ─── Troca de aba (Comparador / Histórico) ─────────────────── */
 function switchCltTab(tab, el) {
@@ -447,12 +453,12 @@ function saveToHistoryCLT() {
   /* Persiste no Firestore se logado */
   if (typeof currentUser !== 'undefined' && currentUser) {
     db.collection('users').doc(currentUser.uid).collection('clt_history').add({
-      regime:   entry.regime,
-      sal:      entry.sal,
+      regime: entry.regime,
+      sal: entry.sal,
       totalCLT: entry.totalCLT,
-      totalPJ:  entry.totalPJ,
-      diff:     entry.diff,
-      savedAt:  firebase.firestore.FieldValue.serverTimestamp(),
+      totalPJ: entry.totalPJ,
+      diff: entry.diff,
+      savedAt: firebase.firestore.FieldValue.serverTimestamp(),
       expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
     }).then(ref => { entry.firestoreId = ref.id; });
   }
@@ -462,7 +468,7 @@ function saveToHistoryCLT() {
   const btn = document.getElementById('btn-save-clt');
   const orig = btn.innerHTML;
   btn.innerHTML = '<i class="ph ph-check"></i> Salvo!';
-  btn.disabled  = true;
+  btn.disabled = true;
   setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 1800);
 }
 
@@ -510,15 +516,15 @@ function renderHistoryCLT() {
   cltHistory.forEach(entry => {
     const card = document.createElement('div');
     card.className = 'history-card';
-    const _now2  = new Date();
+    const _now2 = new Date();
     const _isToday2 = entry.savedAt.toDateString() === _now2.toDateString();
     const time = _isToday2
       ? entry.savedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
       : entry.savedAt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' +
-        entry.savedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      entry.savedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const regimeLabel = entry.regime === 'lucro' ? 'Lucro Real/Presumido' : 'Simples Nacional';
-    const diffClass   = entry.diff <= 0 ? 'history-profit--pos' : 'history-profit--neg';
-    const diffLabel   = entry.diff > 0 ? `CLT custa mais` : entry.diff < 0 ? `PJ custa mais` : `Custo equivalente`;
+    const diffClass = entry.diff <= 0 ? 'history-profit--pos' : 'history-profit--neg';
+    const diffLabel = entry.diff > 0 ? `CLT custa mais` : entry.diff < 0 ? `PJ custa mais` : `Custo equivalente`;
 
     card.innerHTML = `
       <div class="history-card-header">
@@ -564,39 +570,39 @@ function selectCltRegime(r) {
 }
 
 function calcularCLTPJ() {
-  const sal    = parseMasked('clt-salario');
+  const sal = parseMasked('clt-salario');
   if (sal <= 0) { shakeField('clt-salario'); alert('Informe o salário bruto do funcionário.'); return; }
 
-  const vrVal  = parseMasked('clt-vr');
-  const vtVal  = parseMasked('clt-vt');
-  const cesta  = parseMasked('clt-cesta');
-  const bonus  = parseMasked('clt-bonus');
+  const vrVal = parseMasked('clt-vr');
+  const vtVal = parseMasked('clt-vt');
+  const cesta = parseMasked('clt-cesta');
+  const bonus = parseMasked('clt-bonus');
   const outros = parseMasked('clt-outros');
-  const pjNF   = parseMasked('pj-valor');
-  const pjBenef= parseMasked('pj-benef');
+  const pjNF = parseMasked('pj-valor');
+  const pjBenef = parseMasked('pj-benef');
 
   const base = sal + bonus;
 
   let inssP = 0, sistS = 0;
   if (cltPjRegime === 'lucro') { inssP = base * 0.20; sistS = base * 0.07; }
 
-  const fgts   = base * 0.08;
+  const fgts = base * 0.08;
   const decimo = base * 0.0833;
   const ferias = base * 0.1111;
-  const multa  = fgts * 0.40 / 12;
+  const multa = fgts * 0.40 / 12;
 
   const totalCLT = sal + inssP + sistS + fgts + decimo + ferias + multa + vrVal + vtVal + cesta + bonus + outros;
-  const totalPJ  = pjNF + pjBenef;
-  const diff     = totalCLT - totalPJ;
-  const pct      = ((totalCLT - sal) / sal * 100).toFixed(1);
+  const totalPJ = pjNF + pjBenef;
+  const diff = totalCLT - totalPJ;
+  const pct = ((totalCLT - sal) / sal * 100).toFixed(1);
 
   const set = (id, val) => { document.getElementById(id).textContent = val; };
 
   set('r-clt-total', formatBRL(totalCLT));
-  set('r-pj-total',  formatBRL(totalPJ));
-  set('r-clt-pct',   pct + '% acima do salário bruto');
-  set('r-diff',      formatBRL(Math.abs(diff)));
-  set('r-diff-sub',  diff > 0 ? 'CLT custa mais' : diff < 0 ? 'PJ custa mais' : 'Custo equivalente');
+  set('r-pj-total', formatBRL(totalPJ));
+  set('r-clt-pct', pct + '% acima do salário bruto');
+  set('r-diff', formatBRL(Math.abs(diff)));
+  set('r-diff-sub', diff > 0 ? 'CLT custa mais' : diff < 0 ? 'PJ custa mais' : 'Custo equivalente');
 
   set('bd-salario', formatBRL(sal));
 
@@ -610,24 +616,24 @@ function calcularCLTPJ() {
     document.getElementById('txt-inss-pat').textContent = '20% sobre salário + comissão';
   }
 
-  set('bd-fgts',           formatBRL(fgts));
-  set('bd-sistema-s',      formatBRL(sistS));
-  set('bd-decimo',         formatBRL(decimo));
-  set('bd-ferias',         formatBRL(ferias));
-  set('bd-multa',          formatBRL(multa));
-  set('bd-vr',             formatBRL(vrVal));
-  set('bd-vt',             formatBRL(vtVal));
-  set('bd-cesta',          formatBRL(cesta));
-  set('bd-bonus',          formatBRL(bonus));
-  set('bd-outros',         formatBRL(outros));
-  set('bd-pj-nf',          formatBRL(pjNF));
+  set('bd-fgts', formatBRL(fgts));
+  set('bd-sistema-s', formatBRL(sistS));
+  set('bd-decimo', formatBRL(decimo));
+  set('bd-ferias', formatBRL(ferias));
+  set('bd-multa', formatBRL(multa));
+  set('bd-vr', formatBRL(vrVal));
+  set('bd-vt', formatBRL(vtVal));
+  set('bd-cesta', formatBRL(cesta));
+  set('bd-bonus', formatBRL(bonus));
+  set('bd-outros', formatBRL(outros));
+  set('bd-pj-nf', formatBRL(pjNF));
   set('bd-pj-benef-extra', formatBRL(pjBenef));
-  set('bd-total-clt',      formatBRL(totalCLT));
-  set('bd-total-pj',       formatBRL(totalPJ));
+  set('bd-total-clt', formatBRL(totalCLT));
+  set('bd-total-pj', formatBRL(totalPJ));
 
   document.getElementById('bk-row-sistema-s').hidden = (cltPjRegime === 'simples');
 
-  const alertEl   = document.getElementById('clt-alert');
+  const alertEl = document.getElementById('clt-alert');
   const alertText = document.getElementById('clt-alert-text');
   if (diff > 0) {
     alertEl.className = 'clt-alert clt-alert--amber';
@@ -653,19 +659,19 @@ function calcularCLTPJ() {
    ═══════════════════════════════════════════════════════════════ */
 
 const DISPARO_PAL = [
-  ['#0d4a3a','#00d4aa'], ['#0c2a4a','#4fa8e8'], ['#3a0f2e','#d47ab0'],
-  ['#2d1a04','#f0a040'], ['#1a1040','#8b7fe8'], ['#0d2a20','#3db87a'],
+  ['#0d4a3a', '#00d4aa'], ['#0c2a4a', '#4fa8e8'], ['#3a0f2e', '#d47ab0'],
+  ['#2d1a04', '#f0a040'], ['#1a1040', '#8b7fe8'], ['#0d2a20', '#3db87a'],
 ];
 
 const DISPARO_TMPL = `Olá, {nome}! Tudo bem?\n\nVi você no grupo {grupo} e queria me apresentar.\n\nSou o Jheferson da WordVirtua — desenvolvemos o Orbit, um sistema de governança feito para donos de empresas de serviços que querem sair das planilhas e ter controle real do negócio.\n\nVocê teria 15 minutos para eu te mostrar? Pode ser aqui pelo WhatsApp mesmo.`;
 
 const DISPARO_FREE_LIMIT = 100;
 
-let disparoContacts   = [];
-let disparoSel        = null;
-let disparoNid        = 1;
+let disparoContacts = [];
+let disparoSel = null;
+let disparoNid = 1;
 let _disparoTagFilter = null;   // string ou null
-let _disparoFUFilter  = null;   // 'today' | 'overdue' | null
+let _disparoFUFilter = null;   // 'today' | 'overdue' | null
 
 const disparoInitials = n => (n || '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
@@ -703,14 +709,14 @@ function disparoRenderList(list) {
   }
 
   const plan = (typeof _userPlan !== 'undefined') ? _userPlan : 'free';
-  const pct  = plan !== 'orbit' ? Math.round(list.length / DISPARO_FREE_LIMIT * 100) : 0;
+  const pct = plan !== 'orbit' ? Math.round(list.length / DISPARO_FREE_LIMIT * 100) : 0;
 
   el.innerHTML = list.map(c => {
-    const [bg, fg]  = disparoPal(c.id);
-    const isActive  = String(c.id) === String(disparoSel);
-    const msgs      = c.messages || [];
-    const lastMsg   = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-    const fuStatus  = _getFollowUpStatus(c.followUpDate);
+    const [bg, fg] = disparoPal(c.id);
+    const isActive = String(c.id) === String(disparoSel);
+    const msgs = c.messages || [];
+    const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+    const fuStatus = _getFollowUpStatus(c.followUpDate);
 
     const metaLine = lastMsg
       ? `<div class="disparo-ci-meta"><i class="ph ph-paper-plane-tilt"></i> ${_formatRelativeDate(new Date(lastMsg.date))} · ${msgs.length} msg${msgs.length !== 1 ? 's' : ''}</div>`
@@ -721,8 +727,8 @@ function disparoRenderList(list) {
       : '';
 
     const fuDot = fuStatus === 'overdue' ? '<span class="disparo-fu-dot disparo-fu-dot--overdue" title="Follow-up atrasado"></span>'
-                : fuStatus === 'today'   ? '<span class="disparo-fu-dot disparo-fu-dot--today"   title="Follow-up hoje"></span>'
-                : '';
+      : fuStatus === 'today' ? '<span class="disparo-fu-dot disparo-fu-dot--today"   title="Follow-up hoje"></span>'
+        : '';
 
     return `<div class="disparo-ci${isActive ? ' active' : ''}${c.status === 'sent' ? ' faded' : ''}${fuStatus ? ` disparo-ci--fu-${fuStatus}` : ''}" onclick="disparoSelectContact('${c.id}')">
       <div class="disparo-av" style="background:${bg};color:${fg};">${disparoInitials(c.name)}</div>
@@ -767,10 +773,10 @@ function disparoGetTemplate() {
 
 function disparoBuildMsg(c) {
   return disparoGetTemplate()
-    .replace(/{nome}/g,      c.name.split(' ')[0])
-    .replace(/{empresa}/g,   c.company)
-    .replace(/{grupo}/g,     c.group)
-    .replace(/{segmento}/g,  c.segment);
+    .replace(/{nome}/g, c.name.split(' ')[0])
+    .replace(/{empresa}/g, c.company)
+    .replace(/{grupo}/g, c.group)
+    .replace(/{segmento}/g, c.segment);
 }
 
 function disparoSelectContact(id) {
@@ -779,14 +785,14 @@ function disparoSelectContact(id) {
   if (!c) return;
   disparoFilter();
   const [bg, fg] = disparoPal(c.id);
-  const s   = disparoContacts.filter(x => x.status === 'sent').length;
-  const t   = disparoContacts.length;
+  const s = disparoContacts.filter(x => x.status === 'sent').length;
+  const t = disparoContacts.length;
   const pct = t ? Math.round(s / t * 100) : 0;
   const statusBadge = c.status === 'sent'
     ? '<span class="disparo-badge disparo-badge--sent">Enviado</span>'
     : '<span class="disparo-badge disparo-badge--pending">Pendente</span>';
 
-  const sid  = String(id);
+  const sid = String(id);
   const msgs = c.messages || [];
   const msgsBadge = msgs.length > 0
     ? `<span class="disparo-msg-badge">${msgs.length}</span>`
@@ -794,16 +800,16 @@ function disparoSelectContact(id) {
   const msgsHtml = msgs.length === 0
     ? `<div class="disparo-msg-empty"><i class="ph ph-chat-slash"></i> Nenhuma mensagem enviada ainda. Clique em <strong>Abrir no WhatsApp</strong> para registrar.</div>`
     : [...msgs].reverse().map(m => {
-        const d       = new Date(m.date);
-        const dateStr = d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        return `<div class="disparo-msg-entry">
+      const d = new Date(m.date);
+      const dateStr = d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      return `<div class="disparo-msg-entry">
           <div class="disparo-msg-entry-header">
             <span class="disparo-msg-tmpl"><i class="ph ph-file-text"></i> ${_esc(m.templateName)}</span>
             <span class="disparo-msg-date"><i class="ph ph-clock"></i> ${dateStr}</span>
           </div>
           <p class="disparo-msg-preview">${_esc(m.preview)}${m.preview.length >= 120 ? '…' : ''}</p>
         </div>`;
-      }).join('');
+    }).join('');
 
   document.getElementById('disparo-main').innerHTML = `
     <div class="disparo-mheader">
@@ -900,8 +906,8 @@ function disparoSelectContact(id) {
           <i class="ph ph-whatsapp-logo"></i> Abrir no WhatsApp
         </button>
         ${c.status !== 'sent'
-          ? `<button class="disparo-btn-success" onclick="disparoMarkSent('${sid}')"><i class="ph ph-check"></i> Marcar enviado</button>`
-          : `<button class="disparo-btn-ghost" onclick="disparoMarkPending('${sid}')"><i class="ph ph-arrow-counter-clockwise"></i> Desmarcar</button>`}
+      ? `<button class="disparo-btn-success" onclick="disparoMarkSent('${sid}')"><i class="ph ph-check"></i> Marcar enviado</button>`
+      : `<button class="disparo-btn-ghost" onclick="disparoMarkPending('${sid}')"><i class="ph ph-arrow-counter-clockwise"></i> Desmarcar</button>`}
         <button class="disparo-btn-danger" onclick="disparoRemoveContact('${sid}')"><i class="ph ph-trash"></i> Remover</button>
       </div>
 
@@ -944,7 +950,7 @@ function _formatRelativeDate(date) {
   const diff = Math.floor((Date.now() - date) / 86400000);
   if (diff === 0) return 'Hoje';
   if (diff === 1) return 'Ontem';
-  if (diff < 7)  return diff + 'd atrás';
+  if (diff < 7) return diff + 'd atrás';
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
@@ -955,19 +961,19 @@ function disparoOpenWhatsApp(id) {
 
   /* Registra no histórico de mensagens */
   const entry = {
-    date:         new Date().toISOString(),
+    date: new Date().toISOString(),
     templateName: _disparoGetActiveTemplateName(),
-    preview:      msg.slice(0, 120),
+    preview: msg.slice(0, 120),
   };
   if (!c.messages) c.messages = [];
   c.messages.push(entry);
 
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
-      .update({ messages: c.messages }).catch(() => {});
+    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
+      .update({ messages: c.messages, updatedBy: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => { });
   }
 
-  const url = 'https://api.whatsapp.com/send?phone=' + c.phone.replace(/\D/g,'') + '&text=' + encodeURIComponent(msg);
+  const url = 'https://api.whatsapp.com/send?phone=' + c.phone.replace(/\D/g, '') + '&text=' + encodeURIComponent(msg);
   window.open(url, '_blank');
   disparoMarkSent(id);
   disparoShowToast('WhatsApp aberto! Só apertar Enviar.');
@@ -978,8 +984,8 @@ function disparoMarkSent(id) {
   if (!c) return;
   c.status = 'sent';
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
-      .update({ status: 'sent' }).catch(() => {});
+    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
+      .update({ status: 'sent', updatedBy: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => { });
   }
   disparoUpdateStats(); disparoSelectContact(id); disparoFilter();
 }
@@ -989,8 +995,8 @@ function disparoMarkPending(id) {
   if (!c) return;
   c.status = 'pending';
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
-      .update({ status: 'pending' }).catch(() => {});
+    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
+      .update({ status: 'pending', updatedBy: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => { });
   }
   disparoUpdateStats(); disparoSelectContact(id); disparoFilter();
 }
@@ -998,8 +1004,8 @@ function disparoMarkPending(id) {
 function disparoRemoveContact(id) {
   if (!confirm('Remover este contato?')) return;
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
-      .delete().catch(() => {});
+    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
+      .delete().catch(() => { });
   }
   disparoContacts = disparoContacts.filter(c => String(c.id) !== String(id));
   disparoSel = null;
@@ -1021,7 +1027,7 @@ function switchDisparoTab(tab, el) {
   });
   if (el) { el.classList.add('active'); el.setAttribute('aria-selected', 'true'); }
 
-  document.getElementById('panel-disparo-central').hidden   = (tab !== 'central');
+  document.getElementById('panel-disparo-central').hidden = (tab !== 'central');
   document.getElementById('panel-disparo-templates').hidden = (tab !== 'templates');
 
   if (tab === 'templates') renderDisparoTemplates();
@@ -1044,11 +1050,16 @@ function disparoOpenEditModal(id) {
   _disparoEditId = String(id);
 
   document.getElementById('disparo-modal-title').textContent = 'Editar Contato';
-  document.getElementById('d-fn').value   = c.name    !== '—' ? c.name    : '';
-  document.getElementById('d-fc').value   = c.company !== '—' ? c.company : '';
+  document.getElementById('d-fn').value = c.name !== '—' ? c.name : '';
+  document.getElementById('d-fc').value = c.company !== '—' ? c.company : '';
   document.getElementById('d-fseg').value = c.segment !== '—' ? c.segment : '';
-  document.getElementById('d-fg').value   = c.group   !== '—' ? c.group   : '';
-  document.getElementById('d-fp').value   = c.phone;
+  document.getElementById('d-fg').value = c.group !== '—' ? c.group : '';
+  document.getElementById('d-fp').value = c.phone;
+  /* Novos campos de governança */
+  const feEl = document.getElementById('d-fe'); if (feEl) feEl.value = c.email || '';
+  const fbdEl = document.getElementById('d-fbday'); if (fbdEl) fbdEl.value = (c.birthday && typeof _dateToInputVal === 'function') ? _dateToInputVal(c.birthday) : '';
+  const flpdEl = document.getElementById('d-flpd'); if (flpdEl) flpdEl.value = (c.lastPurchaseDate && typeof _dateToInputVal === 'function') ? _dateToInputVal(c.lastPurchaseDate) : '';
+  const ftsEl = document.getElementById('d-fts'); if (ftsEl) ftsEl.value = c.totalSpent || '';
 
   const btn = document.getElementById('disparo-modal-confirm-btn');
   btn.innerHTML = '<i class="ph ph-check"></i> Salvar alterações';
@@ -1058,37 +1069,73 @@ function disparoOpenEditModal(id) {
 }
 
 function disparoSaveEdit() {
-  const name  = document.getElementById('d-fn').value.trim();
+  const name = document.getElementById('d-fn').value.trim();
   const phone = document.getElementById('d-fp').value.trim();
   if (!name || !phone) { disparoShowToast('Nome e WhatsApp são obrigatórios.', true); return; }
 
   const c = disparoContacts.find(x => String(x.id) === String(_disparoEditId));
   if (!c) return;
 
-  c.name    = name;
-  c.company = document.getElementById('d-fc').value.trim()   || '—';
+  /* Novos campos de governança */
+  const email = (document.getElementById('d-fe') || {}).value || '';
+  const birthdayStr = (document.getElementById('d-fbday') || {}).value || '';
+  const lastPurchStr = (document.getElementById('d-flpd') || {}).value || '';
+  const totalSpentVal = parseFloat((document.getElementById('d-fts') || {}).value || '0') || 0;
+  const birthdayDate = typeof _inputValToDate === 'function' ? _inputValToDate(birthdayStr) : null;
+  const lastPurchDate = typeof _inputValToDate === 'function' ? _inputValToDate(lastPurchStr) : null;
+  const normPhone = typeof normalizePhone === 'function' ? normalizePhone(phone) : phone;
+
+  c.name = name;
+  c.company = document.getElementById('d-fc').value.trim() || '—';
   c.segment = document.getElementById('d-fseg').value.trim() || '—';
-  c.group   = document.getElementById('d-fg').value.trim()   || '—';
-  c.phone   = phone;
+  c.group = document.getElementById('d-fg').value.trim() || '—';
+  c.phone = phone;
+  c.normalizedPhone = normPhone;
+  c.email = email.trim();
+  c.birthday = birthdayDate;
+  c.birthdayMonth = birthdayDate ? birthdayDate.getMonth() + 1 : null;
+  c.lastPurchaseDate = lastPurchDate;
+  c.totalSpent = totalSpentVal;
 
   disparoCloseModal();
 
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(c.id))
-      .update({ name: c.name, company: c.company, segment: c.segment, group: c.group, phone: c.phone })
-      .catch(() => { disparoShowToast('Erro ao salvar. Tente novamente.', true); });
+    const uid = currentUser.uid;
+    const patch = {
+      name: c.name,
+      company: c.company,
+      segment: c.segment,
+      group: c.group,
+      phone: c.phone,
+      normalizedPhone: normPhone,
+      email: c.email,
+      birthday: birthdayDate ? firebase.firestore.Timestamp.fromDate(birthdayDate) : null,
+      birthdayMonth: c.birthdayMonth,
+      lastPurchaseDate: lastPurchDate ? firebase.firestore.Timestamp.fromDate(lastPurchDate) : null,
+      totalSpent: totalSpentVal,
+    };
+    if (typeof crmUpdateCustomer === 'function') {
+      crmUpdateCustomer(uid, String(c.id), patch, uid)
+        .catch(() => disparoShowToast('Erro ao salvar. Tente novamente.', true));
+    } else {
+      db.collection('users').doc(uid).collection('customers').doc(String(c.id))
+        .update({ ...patch, updatedBy: uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+        .catch(() => disparoShowToast('Erro ao salvar. Tente novamente.', true));
+    }
   }
 
   disparoShowToast('Contato atualizado!');
   disparoFilter();
   disparoSelectContact(c.id);
   if (typeof renderCRM === 'function') renderCRM();
+  if (typeof crmRenderInsights === 'function') crmRenderInsights();
 }
 
 function disparoCloseModal() {
   _disparoEditId = null;
   document.getElementById('disparo-ov').classList.remove('open');
-  ['d-fn','d-fc','d-fseg','d-fg','d-fp'].forEach(id => { document.getElementById(id).value = ''; });
+  ['d-fn', 'd-fc', 'd-fseg', 'd-fg', 'd-fp', 'd-fe', 'd-fbday', 'd-flpd', 'd-fts']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 }
 
 function disparoCloseOverlay(e) {
@@ -1096,7 +1143,7 @@ function disparoCloseOverlay(e) {
 }
 
 function disparoAddContact() {
-  const name  = document.getElementById('d-fn').value.trim();
+  const name = document.getElementById('d-fn').value.trim();
   const phone = document.getElementById('d-fp').value.trim();
   if (!name || !phone) { disparoShowToast('Nome e WhatsApp são obrigatórios.', true); return; }
 
@@ -1107,42 +1154,91 @@ function disparoAddContact() {
     return;
   }
 
-  const contact = {
+  /* Campos novos do CRM de Governança */
+  const email = (document.getElementById('d-fe') || {}).value || '';
+  const birthdayStr = (document.getElementById('d-fbday') || {}).value || '';
+  const lastPurchStr = (document.getElementById('d-flpd') || {}).value || '';
+  const totalSpentVal = parseFloat((document.getElementById('d-fts') || {}).value || '0') || 0;
+  const birthdayDate = typeof _inputValToDate === 'function' ? _inputValToDate(birthdayStr) : null;
+  const lastPurchDate = typeof _inputValToDate === 'function' ? _inputValToDate(lastPurchStr) : null;
+
+  const contactData = {
     name,
-    company:  document.getElementById('d-fc').value.trim()   || '—',
-    segment:  document.getElementById('d-fseg').value.trim() || '—',
-    group:    document.getElementById('d-fg').value.trim()   || '—',
+    company: document.getElementById('d-fc').value.trim() || '—',
+    segment: document.getElementById('d-fseg').value.trim() || '—',
+    group: document.getElementById('d-fg').value.trim() || '—',
     phone,
-    status:       'pending',
-    stage:        'novo',
-    history:      [],
-    messages:     [],
-    notes:        '',
-    tags:         [],
-    followUpDate: null,
+    email: email.trim(),
+    birthday: birthdayDate,
+    lastPurchaseDate: lastPurchDate,
+    totalSpent: totalSpentVal,
+    origin: 'manual',
   };
 
   disparoCloseModal();
 
   if (typeof currentUser !== 'undefined' && currentUser) {
-    /* Salva no Firestore — o ID do doc vira o ID do contato */
-    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').add({
-      ...contact,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    })
-    .then(ref => {
-      contact.id = ref.id;
-      disparoContacts.push(contact);
-      disparoUpdateStats();
-      disparoFilter();
-      disparoShowToast('Contato adicionado!');
-      _disparoUpdateLimitBar();
-      if (typeof renderCRM === 'function') renderCRM();
-    })
-    .catch(() => { disparoShowToast('Erro ao salvar contato.', true); });
+    const uid = currentUser.uid;
+
+    /* Check-in de Governança: verifica duplicata pelo telefone */
+    crmCreateOrLink(uid, contactData, uid)
+      .then(result => {
+        if (result.duplicate) {
+          disparoShowToast('Telefone já cadastrado — contato vinculado ao existente.');
+          crmLoadCustomers(uid);
+          return;
+        }
+        /* Novo cliente criado */
+        const contact = {
+          id: result.id,
+          name: contactData.name,
+          company: contactData.company,
+          segment: contactData.segment,
+          group: contactData.group,
+          phone: contactData.phone,
+          normalizedPhone: typeof normalizePhone === 'function' ? normalizePhone(contactData.phone) : contactData.phone,
+          email: contactData.email,
+          birthday: birthdayDate,
+          birthdayMonth: birthdayDate ? birthdayDate.getMonth() + 1 : null,
+          lastPurchaseDate: lastPurchDate,
+          totalSpent: totalSpentVal,
+          status: 'pending',
+          stage: 'novo',
+          history: [],
+          messages: [],
+          notes: '',
+          tags: [],
+          followUpDate: null,
+          origin: 'manual',
+        };
+        disparoContacts.push(contact);
+        disparoUpdateStats();
+        disparoFilter();
+        disparoShowToast('Contato adicionado!');
+        _disparoUpdateLimitBar();
+        if (typeof renderCRM === 'function') renderCRM();
+        if (typeof crmRenderInsights === 'function') crmRenderInsights();
+      })
+      .catch(err => {
+        console.error('[CRM] disparoAddContact erro:', err && err.code, err && err.message, err);
+        disparoShowToast('Erro ao salvar contato.', true);
+      });
+
   } else {
     /* Sem login — salva só localmente */
-    contact.id = disparoNid++;
+    const contact = {
+      id: disparoNid++,
+      ...contactData,
+      normalizedPhone: typeof normalizePhone === 'function' ? normalizePhone(phone) : phone,
+      birthdayMonth: birthdayDate ? birthdayDate.getMonth() + 1 : null,
+      status: 'pending',
+      stage: 'novo',
+      history: [],
+      messages: [],
+      notes: '',
+      tags: [],
+      followUpDate: null,
+    };
     disparoContacts.push(contact);
     disparoUpdateStats();
     disparoFilter();
@@ -1154,9 +1250,9 @@ function disparoAddContact() {
 
 /* Atualiza indicador de limite na barra lateral */
 function _disparoUpdateLimitBar() {
-  const plan  = (typeof _userPlan !== 'undefined') ? _userPlan : 'free';
-  const wrap  = document.getElementById('disparo-limit-wrap');
-  const el    = document.getElementById('disparo-limit-bar');
+  const plan = (typeof _userPlan !== 'undefined') ? _userPlan : 'free';
+  const wrap = document.getElementById('disparo-limit-wrap');
+  const el = document.getElementById('disparo-limit-bar');
   const label = document.getElementById('disparo-limit-label');
   if (!wrap || !el || !label) return;
 
@@ -1167,10 +1263,10 @@ function _disparoUpdateLimitBar() {
 
   wrap.hidden = false;
   const used = disparoContacts.length;
-  const pct  = Math.min(Math.round(used / DISPARO_FREE_LIMIT * 100), 100);
-  el.style.width       = pct + '%';
-  el.style.background  = pct >= 90 ? 'var(--c-red)' : pct >= 70 ? 'var(--c-amber)' : 'var(--c-blue)';
-  label.textContent    = `${used} / ${DISPARO_FREE_LIMIT} contatos`;
+  const pct = Math.min(Math.round(used / DISPARO_FREE_LIMIT * 100), 100);
+  el.style.width = pct + '%';
+  el.style.background = pct >= 90 ? 'var(--c-red)' : pct >= 70 ? 'var(--c-amber)' : 'var(--c-blue)';
+  label.textContent = `${used} / ${DISPARO_FREE_LIMIT} contatos`;
 }
 
 function disparoShowToast(msg, err = false) {
@@ -1195,26 +1291,26 @@ function disparoNoteInput(id) {
 }
 
 function disparoSaveNote(id) {
-  const c  = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
-  const ta = document.getElementById('disparo-notes-' + id);         if (!ta) return;
-  c.notes  = ta.value;
+  const c = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
+  const ta = document.getElementById('disparo-notes-' + id); if (!ta) return;
+  c.notes = ta.value;
 
   const statusEl = document.getElementById('disparo-notes-status-' + id);
   const ok = () => {
     if (!statusEl) return;
     statusEl.textContent = 'Salvo ✓';
-    statusEl.className   = 'disparo-notes-status disparo-notes-status--ok';
+    statusEl.className = 'disparo-notes-status disparo-notes-status--ok';
     setTimeout(() => { statusEl.textContent = ''; statusEl.className = 'disparo-notes-status'; }, 2000);
   };
   const fail = () => {
     if (!statusEl) return;
     statusEl.textContent = 'Erro ao salvar';
-    statusEl.className   = 'disparo-notes-status disparo-notes-status--err';
+    statusEl.className = 'disparo-notes-status disparo-notes-status--err';
   };
 
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
-      .update({ notes: c.notes }).then(ok).catch(fail);
+    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
+      .update({ notes: c.notes, updatedBy: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).then(ok).catch(fail);
   } else {
     ok();
   }
@@ -1231,9 +1327,9 @@ function _allTagsDatalist() {
 }
 
 function disparoAddTag(id) {
-  const c     = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
-  const input = document.getElementById('disparo-tag-input-' + id);     if (!input) return;
-  const tag   = input.value.trim().toLowerCase();
+  const c = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
+  const input = document.getElementById('disparo-tag-input-' + id); if (!input) return;
+  const tag = input.value.trim().toLowerCase();
   if (!tag || (c.tags || []).includes(tag)) { input.value = ''; return; }
 
   if (!c.tags) c.tags = [];
@@ -1241,8 +1337,8 @@ function disparoAddTag(id) {
   input.value = '';
 
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
-      .update({ tags: c.tags }).catch(() => {});
+    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
+      .update({ tags: c.tags, updatedBy: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => { });
   }
 
   _renderContactTags(id);
@@ -1252,11 +1348,11 @@ function disparoAddTag(id) {
 
 function disparoRemoveTag(id, tag) {
   const c = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
-  c.tags  = (c.tags || []).filter(t => t !== tag);
+  c.tags = (c.tags || []).filter(t => t !== tag);
 
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
-      .update({ tags: c.tags }).catch(() => {});
+    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
+      .update({ tags: c.tags, updatedBy: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => { });
   }
 
   _renderContactTags(id);
@@ -1265,8 +1361,8 @@ function disparoRemoveTag(id, tag) {
 }
 
 function _renderContactTags(id) {
-  const c         = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
-  const container = document.getElementById('disparo-tags-' + id);          if (!container) return;
+  const c = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
+  const container = document.getElementById('disparo-tags-' + id); if (!container) return;
   container.innerHTML =
     (c.tags || []).map(t =>
       `<span class="disparo-tag-chip">${_esc(t)}<button onclick="disparoRemoveTag('${id}','${_esc(t)}')" title="Remover"><i class="ph ph-x"></i></button></span>`
@@ -1281,7 +1377,7 @@ function _renderContactTags(id) {
 
 function _updateTagFilterChips() {
   const wrap = document.getElementById('disparo-tag-filter-wrap'); if (!wrap) return;
-  const all  = new Set();
+  const all = new Set();
   disparoContacts.forEach(c => (c.tags || []).forEach(t => all.add(t)));
 
   if (all.size === 0) { wrap.innerHTML = ''; return; }
@@ -1326,8 +1422,8 @@ function _followUpLabel(dateStr) {
 }
 
 function disparoSaveFollowUp(id) {
-  const c     = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
-  const input = document.getElementById('disparo-followup-' + id);      if (!input) return;
+  const c = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
+  const input = document.getElementById('disparo-followup-' + id); if (!input) return;
   c.followUpDate = input.value || null;
 
   /* Atualiza o botão limpar e o label de status inline */
@@ -1344,16 +1440,16 @@ function disparoSaveFollowUp(id) {
       row.appendChild(btn);
 
       const lbl = document.createElement('span');
-      const st  = _getFollowUpStatus(c.followUpDate) || 'upcoming';
-      lbl.className   = `disparo-followup-status disparo-followup-status--${st}`;
+      const st = _getFollowUpStatus(c.followUpDate) || 'upcoming';
+      lbl.className = `disparo-followup-status disparo-followup-status--${st}`;
       lbl.textContent = _followUpLabel(c.followUpDate);
       row.appendChild(lbl);
     }
   }
 
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
-      .update({ followUpDate: c.followUpDate }).catch(() => {});
+    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
+      .update({ followUpDate: c.followUpDate, updatedBy: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => { });
   }
 
   disparoFilter();
@@ -1368,7 +1464,7 @@ function disparoClearFollowUp(id) {
 
 function disparoToggleFUFilter(type) {
   _disparoFUFilter = (_disparoFUFilter === type) ? null : type;
-  document.getElementById('fchip-today').classList.toggle('active',   _disparoFUFilter === 'today');
+  document.getElementById('fchip-today').classList.toggle('active', _disparoFUFilter === 'today');
   document.getElementById('fchip-overdue').classList.toggle('active', _disparoFUFilter === 'overdue');
   disparoFilter();
 }
@@ -1381,7 +1477,7 @@ let _importParsed = [];
 
 function disparoOpenImportModal() {
   _importParsed = [];
-  document.getElementById('disparo-import-ta').value       = '';
+  document.getElementById('disparo-import-ta').value = '';
   document.getElementById('disparo-import-preview').innerHTML = '';
   document.getElementById('disparo-import-confirm-btn').hidden = true;
   document.getElementById('disparo-import-ov').classList.add('open');
@@ -1396,9 +1492,9 @@ function disparoCloseImportOverlay(e) {
 }
 
 function disparoParseImport() {
-  const raw   = document.getElementById('disparo-import-ta').value.trim();
-  const prev  = document.getElementById('disparo-import-preview');
-  const btn   = document.getElementById('disparo-import-confirm-btn');
+  const raw = document.getElementById('disparo-import-ta').value.trim();
+  const prev = document.getElementById('disparo-import-preview');
+  const btn = document.getElementById('disparo-import-confirm-btn');
   _importParsed = [];
 
   if (!raw) {
@@ -1409,34 +1505,34 @@ function disparoParseImport() {
 
   /* Detecta separador */
   const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-  const sep   = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ',';
+  const sep = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ',';
 
   const errors = [];
 
   lines.forEach((line, i) => {
-    const cols    = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
+    const cols = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
     const [name, phone, company, segment, group] = cols;
 
     /* Pula linha de cabeçalho (sem dígitos no campo phone) */
     if (i === 0 && phone && !/\d/.test(phone)) return;
     if (!name && !phone) return;
 
-    if (!name)  { errors.push(`Linha ${i + 1}: nome ausente`);     return; }
+    if (!name) { errors.push(`Linha ${i + 1}: nome ausente`); return; }
     if (!phone) { errors.push(`Linha ${i + 1}: WhatsApp ausente`); return; }
 
     _importParsed.push({
       name,
-      phone:   phone.replace(/\D/g, ''),
+      phone: phone.replace(/\D/g, ''),
       company: company || '—',
       segment: segment || '—',
-      group:   group   || '—',
+      group: group || '—',
     });
   });
 
-  const plan      = (typeof _userPlan !== 'undefined') ? _userPlan : 'free';
+  const plan = (typeof _userPlan !== 'undefined') ? _userPlan : 'free';
   const available = plan === 'orbit' ? Infinity : Math.max(0, DISPARO_FREE_LIMIT - disparoContacts.length);
-  const toImport  = plan === 'orbit' ? _importParsed.length : Math.min(_importParsed.length, available);
-  const skipped   = _importParsed.length - toImport;
+  const toImport = plan === 'orbit' ? _importParsed.length : Math.min(_importParsed.length, available);
+  const skipped = _importParsed.length - toImport;
 
   let html = '';
 
@@ -1453,13 +1549,13 @@ function disparoParseImport() {
         <thead><tr><th>Nome</th><th>WhatsApp</th><th>Empresa</th><th>Grupo</th></tr></thead>
         <tbody>
           ${_importParsed.slice(0, toImport).map(c =>
-            `<tr><td>${_esc(c.name)}</td><td>${_esc(c.phone)}</td><td>${_esc(c.company)}</td><td>${_esc(c.group)}</td></tr>`
-          ).join('')}
+      `<tr><td>${_esc(c.name)}</td><td>${_esc(c.phone)}</td><td>${_esc(c.company)}</td><td>${_esc(c.group)}</td></tr>`
+    ).join('')}
         </tbody>
       </table>
     </div>`;
 
-    btn.hidden      = false;
+    btn.hidden = false;
     btn.textContent = `Importar ${toImport} contato${toImport !== 1 ? 's' : ''}`;
   }
 
@@ -1471,13 +1567,13 @@ function disparoParseImport() {
 }
 
 function disparoConfirmImport() {
-  const plan      = (typeof _userPlan !== 'undefined') ? _userPlan : 'free';
+  const plan = (typeof _userPlan !== 'undefined') ? _userPlan : 'free';
   const available = plan === 'orbit' ? Infinity : Math.max(0, DISPARO_FREE_LIMIT - disparoContacts.length);
-  const toImport  = _importParsed.slice(0, plan === 'orbit' ? _importParsed.length : available);
+  const toImport = _importParsed.slice(0, plan === 'orbit' ? _importParsed.length : available);
 
   if (!toImport.length) return;
 
-  const btn    = document.getElementById('disparo-import-confirm-btn');
+  const btn = document.getElementById('disparo-import-confirm-btn');
   btn.disabled = true;
   btn.innerHTML = '<i class="ph ph-circle-notch auth-spin"></i> Importando...';
 
@@ -1485,12 +1581,28 @@ function disparoConfirmImport() {
   const finish = () => { done++; if (done === toImport.length) _afterImport(done); };
 
   toImport.forEach(contact => {
-    const c = { ...contact, status: 'pending', stage: 'novo', history: [], messages: [], notes: '' };
+    const c = {
+      ...contact,
+      normalizedPhone: typeof normalizePhone === 'function' ? normalizePhone(contact.phone || '') : contact.phone,
+      status: 'pending',
+      stage: 'novo',
+      history: [],
+      messages: [],
+      notes: '',
+      origin: 'import_whatsapp',
+    };
 
     if (typeof currentUser !== 'undefined' && currentUser) {
-      db.collection('users').doc(currentUser.uid).collection('disparo_contacts').add({
-        ...c, createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      }).then(ref => { c.id = ref.id; disparoContacts.push(c); finish(); })
+      const uid = currentUser.uid;
+      /* Verifica duplicata antes de importar */
+      crmCreateOrLink(uid, c, uid)
+        .then(result => {
+          if (!result.duplicate) {
+            c.id = result.id;
+            disparoContacts.push(c);
+          }
+          finish();
+        })
         .catch(finish);
     } else {
       c.id = disparoNid++;
@@ -1519,8 +1631,8 @@ disparoFilter();
    TEMPLATES DE DISPARO
    ═══════════════════════════════════════════════════════════════ */
 
-let disparoTemplates  = [];
-let _tmplEditId       = null;   // null = modo novo, string = modo editar
+let disparoTemplates = [];
+let _tmplEditId = null;   // null = modo novo, string = modo editar
 const DISPARO_TMPL_LIMIT_FREE = 3;
 
 /* ─── Pills de seleção de template no painel do contato ──────── */
@@ -1566,8 +1678,8 @@ function _tmplUpdateBadge() {
 
 /* ─── Label de limite ────────────────────────────────────────── */
 function tmplUpdateLimitLabel() {
-  const el   = document.getElementById('tmpl-limit-label');
-  const btn  = document.getElementById('tmpl-new-btn');
+  const el = document.getElementById('tmpl-limit-label');
+  const btn = document.getElementById('tmpl-new-btn');
   if (!el) return;
   const plan = (typeof _userPlan !== 'undefined') ? _userPlan : 'free';
 
@@ -1625,9 +1737,9 @@ function tmplOpenNewForm() {
   }
   _tmplEditId = null;
   document.getElementById('tmpl-form-title').innerHTML = '<i class="ph ph-plus"></i> Novo Template';
-  document.getElementById('tmpl-save-btn').innerHTML   = '<i class="ph ph-check"></i> Salvar template';
-  document.getElementById('tmpl-name').value  = '';
-  document.getElementById('tmpl-body').value  = '';
+  document.getElementById('tmpl-save-btn').innerHTML = '<i class="ph ph-check"></i> Salvar template';
+  document.getElementById('tmpl-name').value = '';
+  document.getElementById('tmpl-body').value = '';
   document.getElementById('tmpl-cc').textContent = '0 chars';
   document.getElementById('tmpl-form-card').hidden = false;
   document.getElementById('tmpl-name').focus();
@@ -1645,7 +1757,7 @@ function tmplStartEdit(id) {
   if (!t) return;
   _tmplEditId = id;
   document.getElementById('tmpl-form-title').innerHTML = '<i class="ph ph-pencil-simple"></i> Editar Template';
-  document.getElementById('tmpl-save-btn').innerHTML   = '<i class="ph ph-check"></i> Atualizar template';
+  document.getElementById('tmpl-save-btn').innerHTML = '<i class="ph ph-check"></i> Atualizar template';
   document.getElementById('tmpl-name').value = t.name;
   document.getElementById('tmpl-body').value = t.body;
   tmplUpdateCounter();
@@ -1687,12 +1799,12 @@ function tmplSaveForm() {
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       })
-      .then(ref => {
-        tmpl.id = ref.id;
-        disparoTemplates.push(tmpl);
-        _tmplAfterSave('Template salvo!');
-      })
-      .catch(() => _tmplSaveError(btn));
+        .then(ref => {
+          tmpl.id = ref.id;
+          disparoTemplates.push(tmpl);
+          _tmplAfterSave('Template salvo!');
+        })
+        .catch(() => _tmplSaveError(btn));
     } else {
       tmpl.id = 'local_' + Date.now();
       disparoTemplates.push(tmpl);
@@ -1721,7 +1833,7 @@ function tmplDelete(id) {
 
   if (typeof currentUser !== 'undefined' && currentUser) {
     db.collection('users').doc(currentUser.uid).collection('disparo_templates').doc(id)
-      .delete().catch(() => {});
+      .delete().catch(() => { });
   }
 
   disparoTemplates = disparoTemplates.filter(t => t.id !== id);
@@ -1774,7 +1886,7 @@ const CURRENCY_FIELDS = [
 
 function applyMask(el) {
   el.addEventListener('input', function () {
-    const pos   = this.selectionStart;
+    const pos = this.selectionStart;
     const before = this.value.length;
     const digits = this.value.replace(/\D/g, '');
     if (!digits) { this.value = ''; return; }
@@ -1842,19 +1954,19 @@ function loadKmHistoryFromFirestore(uid) {
       const fsEntries = snap.docs.map(doc => {
         const d = doc.data();
         return {
-          id:          doc.id,
+          id: doc.id,
           firestoreId: doc.id,
-          origin:      d.origin      || '',
+          origin: d.origin || '',
           destination: d.destination || '',
-          totalKm:     d.totalKm     || 0,
-          tripLabel:   d.tripLabel   || 'ida',
-          realCost:    d.realCost    || 0,
-          charge:      d.charge      || 0,
-          profit:      d.profit      || 0,
-          ratePerKm:   d.ratePerKm   || 0,
+          totalKm: d.totalKm || 0,
+          tripLabel: d.tripLabel || 'ida',
+          realCost: d.realCost || 0,
+          charge: d.charge || 0,
+          profit: d.profit || 0,
+          ratePerKm: d.ratePerKm || 0,
           consumption: d.consumption || 0,
-          fuelPrice:   d.fuelPrice   || 0,
-          savedAt:     d.savedAt ? d.savedAt.toDate() : new Date(),
+          fuelPrice: d.fuelPrice || 0,
+          savedAt: d.savedAt ? d.savedAt.toDate() : new Date(),
         };
       });
 
@@ -1865,7 +1977,7 @@ function loadKmHistoryFromFirestore(uid) {
       updateHistoryBadge();
       renderHistory();
     })
-    .catch(() => {});
+    .catch(() => { });
 }
 
 function loadCltHistoryFromFirestore(uid) {
@@ -1879,14 +1991,14 @@ function loadCltHistoryFromFirestore(uid) {
       const fsEntries = snap.docs.map(doc => {
         const d = doc.data();
         return {
-          id:          doc.id,
+          id: doc.id,
           firestoreId: doc.id,
-          regime:   d.regime   || 'simples',
-          sal:      d.sal      || 0,
+          regime: d.regime || 'simples',
+          sal: d.sal || 0,
           totalCLT: d.totalCLT || 0,
-          totalPJ:  d.totalPJ  || 0,
-          diff:     d.diff     || 0,
-          savedAt:  d.savedAt ? d.savedAt.toDate() : new Date(),
+          totalPJ: d.totalPJ || 0,
+          diff: d.diff || 0,
+          savedAt: d.savedAt ? d.savedAt.toDate() : new Date(),
         };
       });
 
@@ -1896,7 +2008,7 @@ function loadCltHistoryFromFirestore(uid) {
       updateCltBadge();
       renderHistoryCLT();
     })
-    .catch(() => {});
+    .catch(() => { });
 }
 
 function loadKmSettingsFromFirestore(uid) {
@@ -1904,68 +2016,44 @@ function loadKmSettingsFromFirestore(uid) {
     .then(snap => {
       if (!snap.exists) return;
       const d = snap.data();
-      if (d.fuel         != null) document.getElementById('ki-fuel').value         = d.fuel;
-      if (d.tires        != null) document.getElementById('ki-tires').value        = d.tires;
-      if (d.maintenance  != null) document.getElementById('ki-maintenance').value  = d.maintenance;
-      if (d.insurance    != null) document.getElementById('ki-insurance').value    = d.insurance;
+      if (d.fuel != null) document.getElementById('ki-fuel').value = d.fuel;
+      if (d.tires != null) document.getElementById('ki-tires').value = d.tires;
+      if (d.maintenance != null) document.getElementById('ki-maintenance').value = d.maintenance;
+      if (d.insurance != null) document.getElementById('ki-insurance').value = d.insurance;
       if (d.depreciation != null) document.getElementById('ki-depreciation').value = d.depreciation;
-      if (d.consumption  != null) document.getElementById('consumption').value     = d.consumption;
-      if (d.fuelPrice    != null) {
+      if (d.consumption != null) document.getElementById('consumption').value = d.consumption;
+      if (d.fuelPrice != null) {
         document.getElementById('fuel-price').value =
           parseFloat(d.fuelPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
-      if (d.ratePerKm    != null) {
+      if (d.ratePerKm != null) {
         document.getElementById('rate-per-km').value =
           parseFloat(d.ratePerKm).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
       recalcKmTable();
     })
-    .catch(() => {});
+    .catch(() => { });
 }
 
 function loadDisparoContactsFromFirestore(uid) {
-  db.collection('users').doc(uid).collection('disparo_contacts')
-    .orderBy('createdAt', 'asc')
-    .get()
-    .then(snap => {
-      disparoContacts = snap.docs.map(doc => {
-        const d = doc.data();
-        return {
-          id:           doc.id,
-          name:         d.name         || '',
-          company:      d.company      || '—',
-          segment:      d.segment      || '—',
-          group:        d.group        || '—',
-          phone:        d.phone        || '',
-          status:       d.status       || 'pending',
-          stage:        d.stage        || 'novo',
-          history:      d.history      || [],
-          messages:     d.messages     || [],
-          notes:        d.notes        || '',
-          tags:         d.tags         || [],
-          followUpDate: d.followUpDate || null,
-        };
-      });
-      disparoUpdateStats();
-      disparoFilter();
-      _disparoUpdateLimitBar();
-      _updateTagFilterChips();
-    })
-    .catch(() => {});
+  /* Delegado ao módulo CRM (crm.js) — usa coleção 'customers' como SSOT */
+  if (typeof crmLoadCustomers === 'function') {
+    crmLoadCustomers(uid);
+  }
 }
 
 function saveKmSettingsToFirestore() {
   if (typeof currentUser === 'undefined' || !currentUser) return;
   db.collection('users').doc(currentUser.uid).collection('settings').doc('km').set({
-    fuel:         parseFloat(document.getElementById('ki-fuel').value)         || 0,
-    tires:        parseFloat(document.getElementById('ki-tires').value)        || 0,
-    maintenance:  parseFloat(document.getElementById('ki-maintenance').value)  || 0,
-    insurance:    parseFloat(document.getElementById('ki-insurance').value)    || 0,
+    fuel: parseFloat(document.getElementById('ki-fuel').value) || 0,
+    tires: parseFloat(document.getElementById('ki-tires').value) || 0,
+    maintenance: parseFloat(document.getElementById('ki-maintenance').value) || 0,
+    insurance: parseFloat(document.getElementById('ki-insurance').value) || 0,
     depreciation: parseFloat(document.getElementById('ki-depreciation').value) || 0,
-    consumption:  parseFloat(document.getElementById('consumption').value)     || 10,
-    fuelPrice:    parseMasked('fuel-price'),
-    ratePerKm:    parseMasked('rate-per-km'),
-    updatedAt:    firebase.firestore.FieldValue.serverTimestamp(),
+    consumption: parseFloat(document.getElementById('consumption').value) || 10,
+    fuelPrice: parseMasked('fuel-price'),
+    ratePerKm: parseMasked('rate-per-km'),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
   });
 }
 
@@ -1977,7 +2065,7 @@ function loadDisparoTemplatesFromFirestore(uid) {
       disparoTemplates = snap.docs.map(doc => {
         const d = doc.data();
         return {
-          id:   doc.id,
+          id: doc.id,
           name: d.name || '',
           body: d.body || '',
         };
@@ -1985,7 +2073,7 @@ function loadDisparoTemplatesFromFirestore(uid) {
       _tmplUpdateBadge();
       tmplUpdateLimitLabel();
     })
-    .catch(() => {});
+    .catch(() => { });
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2045,10 +2133,15 @@ function renderCRM() {
       card.style.opacity = '1';
     });
 
+    const isClient = c.isClient === true || stage === 'fechado';
+
     card.innerHTML = `
       <div class="crm-card-header">
         <div>
-          <div class="crm-card-name">${c.name}</div>
+          <div class="crm-card-name">
+            ${c.name}
+            ${isClient ? '<span class="crm-client-badge"><i class="ph ph-trophy"></i> Cliente</span>' : ''}
+          </div>
           <div class="crm-card-company">${c.company}</div>
         </div>
         <div class="crm-card-actions">
@@ -2068,9 +2161,7 @@ function renderCRM() {
         <option value="perdido" ${stage === 'perdido' ? 'selected' : ''}>Não Convertido</option>
       </select>
 
-      <div class="crm-card-footer" onclick="crmOpenHistoryModal('${c.id}')" style="cursor:pointer;" title="Clique para ver o histórico completo">
-        <i class="ph ph-note"></i> ${lastNoteLine}
-      </div>
+
     `;
 
     col.appendChild(card);
@@ -2082,7 +2173,7 @@ document.addEventListener('DOMContentLoaded', () => {
   CRM_STAGES.forEach(stage => {
     const col = document.getElementById(`col-${stage}`);
     if (!col) return;
-    
+
     col.addEventListener('dragover', e => {
       e.preventDefault();
       col.classList.add('drag-over');
@@ -2129,10 +2220,27 @@ function crmOpenTransitionModal(leadId, targetStage) {
 
   const currentLabel = CRM_STAGE_LABELS[c.stage] || 'Desconhecido';
   const targetLabel = CRM_STAGE_LABELS[targetStage] || 'Desconhecido';
+  const isFechado = targetStage === 'fechado';
 
-  document.getElementById('crm-transition-desc').innerHTML = 
-    `Movendo <strong>${c.name}</strong><br> De: <span class="badge-stage">${currentLabel}</span> → Para: <span class="badge-stage">${targetLabel}</span>`;
-  
+  /* Título e descrição */
+  const titleEl = document.getElementById('crm-transition-title');
+  if (titleEl) titleEl.textContent = isFechado ? 'Converter em Cliente' : 'Anotação da Mudança';
+
+  document.getElementById('crm-transition-desc').innerHTML =
+    `Movendo <strong>${c.name}</strong><br>De: <span class="badge-stage">${currentLabel}</span> → Para: <span class="badge-stage">${targetLabel}</span>`;
+
+  /* Aviso de promoção */
+  const alertEl = document.getElementById('crm-transition-client-alert');
+  if (alertEl) alertEl.hidden = !isFechado;
+
+  /* Botão de confirmar */
+  const btnEl = document.getElementById('crm-transition-confirm-btn');
+  if (btnEl) {
+    btnEl.innerHTML = isFechado
+      ? '<i class="ph ph-trophy"></i> Confirmar e Converter'
+      : '<i class="ph ph-check"></i> Salvar';
+  }
+
   document.getElementById('crm-transition-note').value = '';
   document.getElementById('crm-transition-modal').classList.add('open');
   document.getElementById('crm-transition-note').focus();
@@ -2143,9 +2251,9 @@ function crmCloseTransitionModal(e) {
   document.getElementById('crm-transition-modal').classList.remove('open');
   crmPendingLeadId = null;
   crmPendingStage = null;
-  
+
   /* Retorna cards ao visual orginal pois o cancelamento os deixa no lugar visual onde caíram */
-  renderCRM(); 
+  renderCRM();
 }
 
 function crmConfirmTransition() {
@@ -2153,29 +2261,45 @@ function crmConfirmTransition() {
 
   const c = disparoContacts.find(x => String(x.id) === String(crmPendingLeadId));
   if (!c) return;
-  
+
   const noteText = document.getElementById('crm-transition-note').value.trim();
   const oldStage = c.stage || 'novo';
-  
+
   c.stage = crmPendingStage;
-  
-  const historyEntry = {
-    date: new Date().toISOString(),
-    oldStage: oldStage,
-    targetStage: crmPendingStage,
-    note: noteText,
-  };
 
-  if (!c.history) c.history = [];
-  c.history.push(historyEntry);
-
-  /* Atualiza BD */
+  /* Persiste: atualiza stage no documento + grava na subcoleção history */
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(c.id))
+    const uid = currentUser.uid;
+
+    /* 1. Atualiza estágio no documento do cliente (com auditoria) */
+    db.collection('users').doc(uid).collection('customers').doc(String(c.id))
       .update({
         stage: c.stage,
-        history: c.history
-      }).catch(err => console.error("Erro salvando CRM", err));
+        updatedBy: uid,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      })
+      .catch(err => console.error('[CRM] Erro ao salvar stage:', err));
+
+    /* 2. Grava entrada imutável na subcoleção history */
+    if (typeof crmWriteHistory === 'function') {
+      crmWriteHistory(uid, String(c.id), { oldStage, targetStage: crmPendingStage, note: noteText }, uid);
+    }
+
+    /* 3. Se moveu para "fechado", promove a Cliente e abre modal de venda */
+    if (crmPendingStage === 'fechado' && typeof promoverParaCliente === 'function') {
+      promoverParaCliente(uid, String(c.id), uid, { via: 'crm', note: noteText || 'via CRM (manual)' })
+        .then(() => {
+          c.isClient = true;
+          if (typeof clientesRenderTable === 'function') clientesRenderTable();
+
+          /* Abre modal de venda para registrar data e valor */
+          const today = new Date().toISOString().slice(0, 10);
+          if (typeof schedOpenGovModal === 'function') {
+            schedOpenGovModal(String(c.id), today, c.name);
+          }
+        })
+        .catch(err => console.error('[CRM] promoverParaCliente erro:', err));
+    }
   }
 
   document.getElementById('crm-transition-modal').classList.remove('open');
@@ -2185,41 +2309,339 @@ function crmConfirmTransition() {
   renderCRM();
 }
 
-/* Mostrar Modal de Historico */
+/* ─── Modal: Promover a Cliente (acionável manualmente) ──────── */
+let _crmPromoteLeadId = null;
+
+function crmOpenPromoteModal(leadId) {
+  _crmPromoteLeadId = leadId;
+  const noteEl = document.getElementById('crm-promote-note');
+  const errEl = document.getElementById('crm-promote-error');
+  if (noteEl) noteEl.value = '';
+  if (errEl) { errEl.textContent = ''; errEl.hidden = true; }
+  const ov = document.getElementById('crm-promote-modal-ov');
+  if (ov) ov.classList.add('open');
+}
+
+function crmPromoteModalClose() {
+  const ov = document.getElementById('crm-promote-modal-ov');
+  if (ov) ov.classList.remove('open');
+  _crmPromoteLeadId = null;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MÓDULO DE PLANOS — UI
+   ═══════════════════════════════════════════════════════════════ */
+
+let _planModalClientId = null;
+
+function planOpenModal(clientId) {
+  _planModalClientId = clientId;
+  const c   = (typeof disparoContacts !== 'undefined' ? disparoContacts : []).find(x => x.id === clientId);
+  const sub = c && c.subscription && c.subscription.status !== 'canceled' ? c.subscription : null;
+
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v !== undefined && v !== null) ? v : ''; };
+  set('plan-name',    sub ? sub.planName     : '');
+  set('plan-credits', sub ? sub.totalCredits : 4);
+  set('plan-used',    sub ? sub.usedCredits  : 0);
+  set('plan-price',   sub ? sub.price        : '');
+  set('plan-status',  sub ? sub.status       : 'active');
+
+  const dateEl = document.getElementById('plan-billing-date');
+  if (dateEl) {
+    if (sub && sub.nextBillingDate instanceof Date) {
+      dateEl.value = sub.nextBillingDate.toISOString().slice(0, 10);
+    } else {
+      const d = new Date(); d.setDate(d.getDate() + 30);
+      dateEl.value = d.toISOString().slice(0, 10);
+    }
+  }
+
+  const titleEl = document.getElementById('plan-modal-client-name');
+  if (titleEl) titleEl.textContent = c ? c.name : '—';
+
+  const cancelBtn = document.getElementById('plan-cancel-btn');
+  if (cancelBtn) cancelBtn.hidden = !sub;
+
+  const errEl = document.getElementById('plan-modal-error');
+  if (errEl) { errEl.textContent = ''; errEl.hidden = true; }
+
+  document.getElementById('plan-modal-ov').classList.add('open');
+}
+
+function planModalClose() {
+  document.getElementById('plan-modal-ov').classList.remove('open');
+  _planModalClientId = null;
+}
+
+function planModalSave() {
+  if (!_planModalClientId || !currentUser) return;
+
+  const get     = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const errEl   = document.getElementById('plan-modal-error');
+  const saveBtn = document.getElementById('plan-modal-save-btn');
+  const planName = get('plan-name');
+
+  if (!planName) {
+    if (errEl) { errEl.textContent = 'Informe o nome do plano.'; errEl.hidden = false; }
+    return;
+  }
+
+  const dateStr         = get('plan-billing-date');
+  const nextBillingDate = dateStr ? new Date(dateStr + 'T12:00:00') : null;
+
+  const planData = {
+    planName,
+    totalCredits:   parseInt(get('plan-credits')) || 1,
+    usedCredits:    parseInt(get('plan-used'))    || 0,
+    price:          parseFloat(get('plan-price')) || 0,
+    status:         get('plan-status')            || 'active',
+    nextBillingDate,
+  };
+
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<i class="ph ph-circle-notch auth-spin"></i> Salvando…'; }
+
+  planSave(currentUser.uid, _planModalClientId, planData, currentUser.uid)
+    .then(() => {
+      planModalClose();
+      if (typeof clientesRenderTable       === 'function') clientesRenderTable();
+      if (typeof planRenderBillingDashboard === 'function') planRenderBillingDashboard();
+      if (typeof disparoShowToast          === 'function') disparoShowToast('Plano salvo com sucesso!');
+    })
+    .catch(err => {
+      console.error('[Plan] planModalSave erro:', err);
+      if (errEl) { errEl.textContent = 'Erro ao salvar. Tente novamente.'; errEl.hidden = false; }
+    })
+    .finally(() => {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '<i class="ph ph-floppy-disk"></i> Salvar'; }
+    });
+}
+
+function planCancelConfirm() {
+  if (!_planModalClientId || !currentUser) return;
+  if (!confirm('Cancelar o plano deste cliente?')) return;
+  const cancelBtn = document.getElementById('plan-cancel-btn');
+  if (cancelBtn) cancelBtn.disabled = true;
+
+  planCancel(currentUser.uid, _planModalClientId, currentUser.uid)
+    .then(() => {
+      planModalClose();
+      if (typeof clientesRenderTable       === 'function') clientesRenderTable();
+      if (typeof planRenderBillingDashboard === 'function') planRenderBillingDashboard();
+      if (typeof disparoShowToast          === 'function') disparoShowToast('Plano cancelado.');
+    })
+    .catch(() => { if (cancelBtn) cancelBtn.disabled = false; });
+}
+
+function planUseCreditUI(clientId) {
+  if (!currentUser) return;
+  useCredit(currentUser.uid, clientId, currentUser.uid)
+    .then(({ ok, remaining, limitReached }) => {
+      if (!ok) {
+        if (typeof disparoShowToast === 'function') disparoShowToast('Limite do plano já atingido!', true);
+        return;
+      }
+      if (typeof clientesRenderTable === 'function') clientesRenderTable();
+      if (limitReached) {
+        if (typeof disparoShowToast === 'function') disparoShowToast('Limite atingido! Todos os créditos do plano foram usados.', true);
+      } else {
+        if (typeof disparoShowToast === 'function') disparoShowToast(`Crédito usado. Restam ${remaining} crédito${remaining !== 1 ? 's' : ''}.`);
+      }
+    })
+    .catch(err => {
+      console.error('[Plan] useCredit erro:', err);
+      if (typeof disparoShowToast === 'function') disparoShowToast('Erro ao usar crédito.', true);
+    });
+}
+
+function planResetCycleUI(clientId) {
+  if (!currentUser) return;
+  const c = (typeof disparoContacts !== 'undefined' ? disparoContacts : []).find(x => x.id === clientId);
+  if (!c) return;
+  if (!confirm(`Confirmar pagamento e resetar ciclo de "${c.name}"?`)) return;
+
+  planResetCycle(currentUser.uid, clientId, currentUser.uid)
+    .then(() => {
+      if (typeof clientesRenderTable       === 'function') clientesRenderTable();
+      if (typeof planRenderBillingDashboard === 'function') planRenderBillingDashboard();
+      if (typeof disparoShowToast          === 'function') disparoShowToast(`Ciclo de ${c.name} resetado!`);
+    })
+    .catch(err => {
+      console.error('[Plan] resetCycle erro:', err);
+      if (typeof disparoShowToast === 'function') disparoShowToast('Erro ao resetar ciclo.', true);
+    });
+}
+
+function crmPromoteConfirm() {
+  if (!_crmPromoteLeadId || !currentUser) return;
+  const uid = currentUser.uid;
+  const note = (document.getElementById('crm-promote-note') || {}).value || '';
+  const btn = document.getElementById('crm-promote-save-btn');
+  const errEl = document.getElementById('crm-promote-error');
+
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph ph-circle-notch auth-spin"></i> Salvando…'; }
+
+  promoverParaCliente(uid, _crmPromoteLeadId, uid, { via: 'crm', note: note || 'Promoção manual' })
+    .then(() => {
+      const c = (typeof disparoContacts !== 'undefined' ? disparoContacts : [])
+        .find(x => String(x.id) === String(_crmPromoteLeadId));
+      if (c) c.isClient = true;
+      if (typeof clientesRenderTable === 'function') clientesRenderTable();
+      if (typeof disparoShowToast === 'function') disparoShowToast('Cliente promovido com sucesso!');
+      crmPromoteModalClose();
+    })
+    .catch(err => {
+      console.error('[CRM] crmPromoteConfirm erro:', err);
+      if (errEl) { errEl.textContent = 'Erro ao promover. Tente novamente.'; errEl.hidden = false; }
+    })
+    .finally(() => {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-trophy"></i> Confirmar'; }
+    });
+}
+
+/* Mostrar Modal de Perfil + Histórico */
 function crmOpenHistoryModal(leadId) {
   const c = disparoContacts.find(x => String(x.id) === String(leadId));
   if (!c) return;
 
-  document.getElementById('crm-history-title').textContent = `Histórico: ${c.name}`;
-  
-  const list = document.getElementById('crm-history-list');
-  if (!c.history || c.history.length === 0) {
-    list.innerHTML = `<p style="font-size:0.8rem;color:var(--c-muted);">Ainda não há histórico de interações para este lead.</p>`;
-  } else {
-    /* Ordena mais recente primeiro */
-    const reversed = [...c.history].reverse();
-    list.innerHTML = reversed.map(h => {
-      const d = new Date(h.date);
-      const time = d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-      const lblTarget = CRM_STAGE_LABELS[h.targetStage] || h.targetStage;
-      return `
-        <div class="timeline-event">
-          <div class="timeline-icon">
-             <i class="ph ph-git-commit"></i>
-          </div>
-          <div class="timeline-content">
-             <div class="timeline-meta">
-               <span>Movido para <strong>${lblTarget}</strong></span>
-               <span>${time}</span>
-             </div>
-             ${h.note ? `<div class="timeline-note">${h.note.replace(/\n/g, '<br>')}</div>` : `<div class="timeline-note" style="color:var(--c-muted);font-style:italic;">Sem anotação extra.</div>`}
-          </div>
-        </div>
-      `;
-    }).join('');
+  const fmtBRL = v => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const fmtDate = d => d instanceof Date ? d.toLocaleDateString('pt-BR') : '—';
+  const esc = s => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  /* ── Avatar (iniciais) ── */
+  const initials = (c.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  const avatarEl = document.getElementById('crm-profile-avatar');
+  if (avatarEl) avatarEl.textContent = initials;
+
+  /* ── Nome + badge ── */
+  const nameEl = document.getElementById('crm-profile-name');
+  const badgeEl = document.getElementById('crm-profile-badge');
+  const subEl = document.getElementById('crm-profile-sub');
+  if (nameEl) nameEl.textContent = c.name || '—';
+  if (badgeEl) {
+    if (c.isClient) {
+      badgeEl.innerHTML = '<i class="ph ph-trophy"></i> Cliente';
+      badgeEl.className = 'crm-profile-badge crm-profile-badge--client';
+      badgeEl.hidden = false;
+    } else {
+      badgeEl.hidden = true;
+    }
   }
+  if (subEl) subEl.textContent = [c.company !== '—' ? c.company : '', c.segment !== '—' ? c.segment : ''].filter(Boolean).join(' · ') || 'Lead';
+
+  /* ── Stats ── */
+  const freq = (typeof _calcFrequencia === 'function') ? _calcFrequencia(c) : { label: '—' };
+  const _s = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  _s('crm-stat-total', fmtBRL(c.totalSpent));
+  _s('crm-stat-count', c.purchaseCount ? `${c.purchaseCount}x` : '0x');
+  _s('crm-stat-freq', freq.label);
+  _s('crm-stat-last', c.lastPurchaseDate ? fmtDate(c.lastPurchaseDate) : 'Nenhuma');
+
+  /* ── Detalhes de contato ── */
+  const phone = (c.phone || '').replace(/\D/g, '');
+  const bdayStr = c.birthday instanceof Date
+    ? c.birthday.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
+    : '—';
+  const clientSinceStr = c.clientSince instanceof Date ? fmtDate(c.clientSince) : '—';
+
+  const detailsEl = document.getElementById('crm-profile-details');
+  if (detailsEl) detailsEl.innerHTML = `
+    ${phone ? `<a class="crm-profile-detail" href="https://wa.me/${phone}" target="_blank" rel="noopener">
+      <i class="ph ph-whatsapp-logo" style="color:#25d366;"></i> ${esc(c.phone)}
+    </a>` : ''}
+    ${c.email ? `<span class="crm-profile-detail">
+      <i class="ph ph-envelope"></i> ${esc(c.email)}
+    </span>` : ''}
+    ${bdayStr !== '—' ? `<span class="crm-profile-detail">
+      <i class="ph ph-cake" style="color:#7c3aed;"></i> ${bdayStr}
+    </span>` : ''}
+    ${c.isClient && clientSinceStr !== '—' ? `<span class="crm-profile-detail">
+      <i class="ph ph-calendar-check" style="color:#16a34a;"></i> Cliente desde ${clientSinceStr}
+    </span>` : ''}
+    ${c.notes ? `<span class="crm-profile-detail crm-profile-detail--note">
+      <i class="ph ph-note"></i> ${esc(c.notes)}
+    </span>` : ''}
+  `;
+
+  /* ── Timeline ── */
+  const list = document.getElementById('crm-history-list');
+  list.innerHTML = `<p style="font-size:0.8rem;color:var(--c-text-muted);text-align:center;padding:16px;">
+    <i class="ph ph-circle-notch auth-spin"></i> Carregando…
+  </p>`;
 
   document.getElementById('crm-history-modal').classList.add('open');
+
+  /* Busca na subcoleção */
+  const uid = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.uid : null;
+
+  if (!uid) {
+    list.innerHTML = `<p style="font-size:0.8rem;color:var(--c-text-muted);">Faça login para ver o histórico.</p>`;
+    return;
+  }
+
+  const renderEntries = entries => {
+    if (entries.length === 0) {
+      list.innerHTML = `<p style="font-size:0.8rem;color:var(--c-text-muted);">Ainda não há histórico de interações para este lead.</p>`;
+      return;
+    }
+    list.innerHTML = entries.map(h => {
+      const d = h.date instanceof Date ? h.date : new Date(h.date);
+      const time = d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const type = h.type || 'stage_change';
+
+      let icon, title, noteHtml;
+
+      if (type === 'sale_registered') {
+        icon = 'ph-currency-circle-dollar';
+        title = `<strong style="color:#10b981;">Venda Registrada</strong>`;
+        noteHtml = h.note
+          ? `<div class="timeline-note timeline-note--sale">${h.note.replace(/\n/g, '<br>')}</div>`
+          : '';
+
+      } else if (type === 'appointment_linked') {
+        icon = 'ph-calendar-check';
+        title = `<strong>Agendamento Vinculado</strong>`;
+        noteHtml = h.note
+          ? `<div class="timeline-note">${h.note.replace(/\n/g, '<br>')}</div>`
+          : '';
+
+      } else if (type === 'customer_created') {
+        icon = 'ph-user-plus';
+        title = `<strong>Cliente Criado</strong>`;
+        noteHtml = h.note
+          ? `<div class="timeline-note">${h.note.replace(/\n/g, '<br>')}</div>`
+          : '';
+
+      } else {
+        /* stage_change — comportamento original */
+        icon = 'ph-git-commit';
+        const lblTarget = CRM_STAGE_LABELS[h.targetStage] || h.targetStage || '—';
+        const lblOld = CRM_STAGE_LABELS[h.oldStage] || h.oldStage || '—';
+        title = `${lblOld} → <strong>${lblTarget}</strong>`;
+        noteHtml = h.note
+          ? `<div class="timeline-note">${h.note.replace(/\n/g, '<br>')}</div>`
+          : `<div class="timeline-note" style="color:var(--c-text-muted);font-style:italic;">Sem anotação.</div>`;
+      }
+
+      return `
+        <div class="timeline-event">
+          <div class="timeline-icon timeline-icon--${type}"><i class="ph ${icon}"></i></div>
+          <div class="timeline-content">
+            <div class="timeline-meta">
+              <span>${title}</span>
+              <span>${time}</span>
+            </div>
+            ${noteHtml}
+          </div>
+        </div>`;
+    }).join('');
+  };
+
+  if (typeof crmGetHistory === 'function') {
+    crmGetHistory(uid, String(leadId), renderEntries);
+  } else {
+    /* Fallback: array em memória (sem login ou crm.js não carregado) */
+    renderEntries(c.history || []);
+  }
 }
 
 function crmCloseHistoryModal(e) {
@@ -2235,10 +2657,10 @@ window.addEventListener('load', () => { setTimeout(() => { renderCRM(); }, 500);
    ═══════════════════════════════════════════════════════════════ */
 
 /* ─── Estado ──────────────────────────────────────────────────── */
-let schedConfig   = { workDays: [1,2,3,4,5], defaultTimes: ['08:00','09:00','10:00','11:00','14:00','15:00','16:00','17:00'], whatsapp: '' };
+let schedConfig = { workDays: [1, 2, 3, 4, 5], defaultTimes: ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'], whatsapp: '' };
 let schedServices = [];
 let schedBookings = [];
-let schedDays     = {};   /* { 'YYYY-MM-DD': { blocked: bool, times: [], reason: '' } } */
+let schedDays = {};   /* { 'YYYY-MM-DD': { blocked: bool, times: [], reason: '' } } */
 
 /* Retorna o UID correto: tenant ativo ou conta própria */
 function _schedUid() {
@@ -2247,11 +2669,11 @@ function _schedUid() {
     : (currentUser ? currentUser.uid : null);
 }
 
-let _schedCalYear  = new Date().getFullYear();
+let _schedCalYear = new Date().getFullYear();
 let _schedCalMonth = new Date().getMonth(); /* 0-indexed */
-let _schedSelDate  = null; /* 'YYYY-MM-DD' */
+let _schedSelDate = null; /* 'YYYY-MM-DD' */
 let _schedSvcEditId = null;
-let _schedBkEditId  = null;
+let _schedBkEditId = null;
 
 /* ─── Helpers ─────────────────────────────────────────────────── */
 function _schedDateStr(d) {
@@ -2281,7 +2703,7 @@ function switchSchedTab(tab, el) {
   });
   if (el) { el.classList.add('active'); el.setAttribute('aria-selected', 'true'); }
 
-  ['agenda','services','config'].forEach(t => {
+  ['agenda', 'services', 'config'].forEach(t => {
     document.getElementById('sched-panel-' + t).classList.toggle('hidden', t !== tab);
   });
 
@@ -2297,7 +2719,7 @@ function switchSchedTab(tab, el) {
    ═══════════════════════════════════════════════════════════════ */
 
 function schedRenderCalendar() {
-  const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   const label = document.getElementById('sched-cal-month-label');
   if (label) label.textContent = `${monthNames[_schedCalMonth]} ${_schedCalYear}`;
 
@@ -2306,7 +2728,7 @@ function schedRenderCalendar() {
 
   const todayStr = _schedTodayStr();
   const firstDay = new Date(_schedCalYear, _schedCalMonth, 1);
-  const lastDay  = new Date(_schedCalYear, _schedCalMonth + 1, 0);
+  const lastDay = new Date(_schedCalYear, _schedCalMonth + 1, 0);
 
   let cells = '';
 
@@ -2316,13 +2738,13 @@ function schedRenderCalendar() {
   }
 
   for (let d = 1; d <= lastDay.getDate(); d++) {
-    const dt     = new Date(_schedCalYear, _schedCalMonth, d);
+    const dt = new Date(_schedCalYear, _schedCalMonth, d);
     const dateStr = _schedDateStr(dt);
     const isToday = dateStr === todayStr;
-    const isSel   = dateStr === _schedSelDate;
+    const isSel = dateStr === _schedSelDate;
     const dayOfWeek = dt.getDay();
-    const isOffDay  = !schedConfig.workDays.includes(dayOfWeek);
-    const dayData   = schedDays[dateStr] || {};
+    const isOffDay = !schedConfig.workDays.includes(dayOfWeek);
+    const dayData = schedDays[dateStr] || {};
     const isBlocked = dayData.blocked;
 
     /* Count bookings for this day */
@@ -2334,10 +2756,10 @@ function schedRenderCalendar() {
     }
 
     let cls = 'sched-cal-cell';
-    if (isBlocked)       cls += ' sched-cal-cell--blocked';
-    else if (isSel)      cls += ' sched-cal-cell--selected';
-    else if (isToday)    cls += ' sched-cal-cell--today';
-    else if (isOffDay)   cls += ' sched-cal-cell--offday';
+    if (isBlocked) cls += ' sched-cal-cell--blocked';
+    else if (isSel) cls += ' sched-cal-cell--selected';
+    else if (isToday) cls += ' sched-cal-cell--today';
+    else if (isOffDay) cls += ' sched-cal-cell--offday';
 
     cells += `<div class="${cls}" onclick="schedSelectDate('${dateStr}')">${d}${dotsHtml}</div>`;
   }
@@ -2373,7 +2795,7 @@ function schedRenderDayPanel(dateStr) {
   if (titleEl) titleEl.textContent = `Agendamentos — ${_schedFmt(dateStr)}`;
   if (blockBtn) blockBtn.hidden = false;
 
-  const dayData   = schedDays[dateStr] || {};
+  const dayData = schedDays[dateStr] || {};
   const isBlocked = dayData.blocked;
 
   if (blockBtn) {
@@ -2412,12 +2834,34 @@ function schedRenderDayPanel(dateStr) {
     const svcChips = (b.services || []).map(s => `<span class="sched-bk-svc-chip">${_esc(s)}</span>`).join('');
     const cls = `sched-booking-card sched-booking-card--${b.status || 'pending'}`;
     const statusCls = `sched-status-badge sched-status-badge--${b.status || 'pending'}`;
-    const phoneLink = b.phone ? `<a href="https://wa.me/${b.phone.replace(/\D/g,'')}" target="_blank" class="sched-bk-phone"><i class="ph ph-whatsapp-logo"></i>${_esc(b.phone)}</a>` : '';
+    const phoneLink = b.phone
+      ? `<a href="https://wa.me/${b.phone.replace(/\D/g, '')}" target="_blank" class="sched-bk-phone"><i class="ph ph-whatsapp-logo"></i>${_esc(b.phone)}</a>`
+      : '';
+
+    /* Badge CRM: vinculado ou pendente */
+    const crmBadge = b.customerId
+      ? `<span class="sched-crm-badge sched-crm-badge--linked" title="Vinculado ao CRM — ID: ${b.customerId}">
+           <i class="ph ph-check-circle"></i> CRM
+         </span>`
+      : `<span class="sched-crm-badge sched-crm-badge--unlinked" title="Ainda não vinculado ao CRM">
+           <i class="ph ph-link-break"></i> Sem CRM
+         </span>`;
+
+    /* Botão de vinculação: aparece apenas se não vinculado e tem telefone */
+    const linkBtn = (!b.customerId && b.phone && currentUser)
+      ? `<button class="sched-bk-action-btn sched-bk-action-btn--crm"
+           id="sched-link-btn-${b.id}"
+           onclick="schedLinkToCRM('${b.id}')">
+           <i class="ph ph-user-plus"></i> Vincular ao CRM
+         </button>`
+      : '';
+
     return `
-      <div class="${cls}">
+      <div class="${cls}" id="sched-bk-card-${b.id}">
         <div class="sched-bk-card-top">
           <span class="sched-bk-time-badge"><i class="ph ph-clock"></i>${_esc(b.time || '—')}</span>
           <span class="${statusCls}">${_schedStatusLabel(b.status || 'pending')}</span>
+          ${crmBadge}
         </div>
         <div class="sched-bk-client">${_esc(b.clientName || '—')}</div>
         ${phoneLink}
@@ -2425,24 +2869,342 @@ function schedRenderDayPanel(dateStr) {
         ${b.notes ? `<div style="font-size:.8rem;color:var(--c-mid);">${_esc(b.notes)}</div>` : ''}
         <div class="sched-bk-card-actions">
           <button class="sched-bk-action-btn" onclick="schedOpenBookingModal('${dateStr}', '${b.id}')"><i class="ph ph-pencil"></i> Editar</button>
-          ${b.phone ? `<a href="https://wa.me/${b.phone.replace(/\D/g,'')}" target="_blank" class="sched-bk-action-btn sched-bk-action-btn--wa"><i class="ph ph-whatsapp-logo"></i> WhatsApp</a>` : ''}
+          ${b.phone ? `<a href="https://wa.me/${b.phone.replace(/\D/g, '')}" target="_blank" class="sched-bk-action-btn sched-bk-action-btn--wa"><i class="ph ph-whatsapp-logo"></i> WhatsApp</a>` : ''}
+          ${linkBtn}
           <button class="sched-bk-action-btn sched-bk-action-btn--danger" onclick="schedDeleteBooking('${b.id}')"><i class="ph ph-trash"></i> Excluir</button>
         </div>
       </div>`;
   }).join('');
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   VINCULAÇÃO MANUAL: Agendamento → CRM
+   ═══════════════════════════════════════════════════════════════ */
+
+let _schedLinkBookingId = null;   /* booking em processo de vinculação */
+
+/* Abre o modal de vinculação */
+function schedLinkToCRM(bookingId) {
+  const bk = schedBookings.find(b => b.id === bookingId);
+  if (!bk) return;
+
+  _schedLinkBookingId = bookingId;
+
+  /* Exibe info do agendamento no cabeçalho do modal */
+  const info = document.getElementById('sched-link-booking-info');
+  if (info) {
+    info.textContent = `${bk.clientName || '—'}${bk.phone ? ' · ' + bk.phone : ''} · ${_schedFmt(bk.date)}`;
+  }
+
+  /* Pré-preenche a busca com o nome do agendamento e dispara a busca */
+  const input = document.getElementById('sched-link-search');
+  if (input) {
+    input.value = bk.clientName || '';
+    schedLinkSearch(input.value);
+  }
+
+  document.getElementById('sched-link-modal-ov').classList.add('open');
+  setTimeout(() => { if (input) input.focus(); }, 100);
+}
+
+/* Fecha o modal */
+function schedLinkModalClose() {
+  document.getElementById('sched-link-modal-ov').classList.remove('open');
+  _schedLinkBookingId = null;
+  const input = document.getElementById('sched-link-search');
+  if (input) input.value = '';
+  const results = document.getElementById('sched-link-results');
+  if (results) results.innerHTML = '<p class="sched-link-hint"><i class="ph ph-info"></i> Digite para buscar entre seus clientes cadastrados.</p>';
+}
+
+/* Busca em disparoContacts por nome ou telefone (client-side, sem query extra) */
+function schedLinkSearch(query) {
+  const results = document.getElementById('sched-link-results');
+  if (!results) return;
+
+  const q = (query || '').trim().toLowerCase();
+
+  if (!q) {
+    results.innerHTML = '<p class="sched-link-hint"><i class="ph ph-info"></i> Digite para buscar entre seus clientes cadastrados.</p>';
+    return;
+  }
+
+  const matches = (typeof disparoContacts !== 'undefined' ? disparoContacts : [])
+    .filter(c => {
+      const name = (c.name || '').toLowerCase();
+      const phone = (c.phone || '').replace(/\D/g, '');
+      const norm = (c.normalizedPhone || '').toLowerCase();
+      return name.includes(q) || phone.includes(q.replace(/\D/g, '')) || norm.includes(q.replace(/\D/g, ''));
+    })
+    .slice(0, 8);  /* máximo 8 resultados */
+
+  if (matches.length === 0) {
+    results.innerHTML = `
+      <p class="sched-link-hint sched-link-hint--empty">
+        <i class="ph ph-magnifying-glass"></i> Nenhum cliente encontrado para "<strong>${_esc(query)}</strong>".<br>
+        <span style="font-size:.75rem;">Use o botão abaixo para criar um novo cliente.</span>
+      </p>`;
+    return;
+  }
+
+  results.innerHTML = matches.map(c => `
+    <div class="sched-link-result-row">
+      <div class="sched-link-result-info">
+        <div class="sched-link-result-name">${_esc(c.name)}</div>
+        <div class="sched-link-result-meta">
+          ${c.phone ? `<span><i class="ph ph-whatsapp-logo"></i> ${_esc(c.phone)}</span>` : ''}
+          ${c.company && c.company !== '—' ? `<span><i class="ph ph-buildings"></i> ${_esc(c.company)}</span>` : ''}
+        </div>
+      </div>
+      <button class="sched-link-result-btn" onclick="schedLinkConfirm('${c.id}', this)">
+        <i class="ph ph-link-simple"></i> Vincular
+      </button>
+    </div>`
+  ).join('');
+}
+
+/* Vincula o agendamento a um cliente EXISTENTE selecionado */
+function schedLinkConfirm(customerId, btnEl) {
+  const bookingId = _schedLinkBookingId;
+  if (!bookingId || !customerId) return;
+
+  const uid = _schedUid();
+  if (!uid) return;
+
+  /* Feedback no botão clicado */
+  const btn = btnEl || null;
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph ph-circle-notch auth-spin"></i>'; }
+
+  db.collection('users').doc(uid).collection('sched_bookings').doc(bookingId)
+    .update({
+      customerId: customerId,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    })
+    .then(() => {
+      /* Registra interação no cliente */
+      db.collection('users').doc(uid).collection('customers').doc(customerId)
+        .update({
+          lastInteraction: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedBy: currentUser.uid,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }).catch(() => { });
+
+      /* Registra no histórico do CRM */
+      const bkLinked = schedBookings.find(b => b.id === bookingId) || {};
+      crmWriteHistory(uid, customerId, {
+        type: 'appointment_linked',
+        note: `Agendamento vinculado — ${_schedFmt(bkLinked.date || '')}${bkLinked.time ? ' às ' + bkLinked.time : ''}${(bkLinked.services || []).length ? '\nServiços: ' + bkLinked.services.join(', ') : ''}`,
+      }, currentUser.uid);
+
+      /* Atualiza memória local */
+      const idx = schedBookings.findIndex(b => b.id === bookingId);
+      if (idx >= 0) schedBookings[idx].customerId = customerId;
+
+      /* Fecha modal e atualiza UI */
+      document.getElementById('sched-link-modal-ov').classList.remove('open');
+      _schedLinkBookingId = null;
+      if (_schedSelDate) schedRenderDayPanel(_schedSelDate);
+      if (typeof disparoShowToast === 'function') disparoShowToast('Agendamento vinculado ao cliente!');
+    })
+    .catch(err => {
+      console.error('[CRM] schedLinkConfirm erro:', err);
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-link-simple"></i> Vincular'; }
+      if (typeof disparoShowToast === 'function') disparoShowToast('Erro ao vincular. Tente novamente.', true);
+    });
+}
+
+/* Cria um NOVO cliente a partir dos dados do agendamento e vincula */
+function schedLinkCreateNew() {
+  const bookingId = _schedLinkBookingId;
+  if (!bookingId) return;
+
+  const uid = _schedUid();
+  if (!uid || !currentUser) return;
+
+  const bk = schedBookings.find(b => b.id === bookingId);
+  if (!bk) return;
+
+  const createBtn = document.querySelector('#sched-link-modal-ov .btn-calc');
+  if (createBtn) { createBtn.disabled = true; createBtn.innerHTML = '<i class="ph ph-circle-notch auth-spin"></i> Criando…'; }
+
+  crmCreateOrLink(uid, {
+    name: bk.clientName || '',
+    phone: bk.phone || '',
+    origin: 'site_agendamento',
+  }, currentUser.uid)
+    .then(result => {
+      /* result.duplicate = true → já existia, vincula ao existente */
+      const customerId = result.id;
+
+      return db.collection('users').doc(uid).collection('sched_bookings').doc(bookingId)
+        .update({
+          customerId: customerId,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        })
+        .then(() => ({ customerId, duplicate: result.duplicate }));
+    })
+    .then(({ customerId, duplicate }) => {
+      /* Registra no histórico do CRM */
+      const bkNew = schedBookings.find(b => b.id === bookingId) || {};
+      const noteNew = `${duplicate ? 'Agendamento vinculado' : 'Cliente criado via agendamento'} — ${_schedFmt(bkNew.date || '')}${bkNew.time ? ' às ' + bkNew.time : ''}${(bkNew.services || []).length ? '\nServiços: ' + bkNew.services.join(', ') : ''}`;
+      crmWriteHistory(uid, customerId, {
+        type: duplicate ? 'appointment_linked' : 'customer_created',
+        note: noteNew,
+      }, currentUser.uid);
+
+      /* Atualiza memória e recarrega CRM */
+      const idx = schedBookings.findIndex(b => b.id === bookingId);
+      if (idx >= 0) schedBookings[idx].customerId = customerId;
+
+      if (typeof crmLoadCustomers === 'function') crmLoadCustomers(uid);
+
+      document.getElementById('sched-link-modal-ov').classList.remove('open');
+      _schedLinkBookingId = null;
+      if (_schedSelDate) schedRenderDayPanel(_schedSelDate);
+
+      const msg = duplicate
+        ? 'Telefone já cadastrado — agendamento vinculado ao cliente existente!'
+        : 'Novo cliente criado e agendamento vinculado!';
+      if (typeof disparoShowToast === 'function') disparoShowToast(msg);
+    })
+    .catch(err => {
+      console.error('[CRM] schedLinkCreateNew erro:', err);
+      if (createBtn) { createBtn.disabled = false; createBtn.innerHTML = '<i class="ph ph-user-plus"></i> Criar novo cliente a partir deste agendamento'; }
+      if (typeof disparoShowToast === 'function') disparoShowToast('Erro ao criar cliente. Tente novamente.', true);
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MODAL DE GOVERNANÇA — Registrar Venda ao Concluir Agendamento
+   ═══════════════════════════════════════════════════════════════ */
+
+let _schedGovCustomerId = null;
+
+function schedOpenGovModal(customerId, bookingDate, clientName) {
+  _schedGovCustomerId = customerId;
+
+  /* Cabeçalho com nome do cliente */
+  const titleEl = document.getElementById('sched-gov-client-name');
+  if (titleEl) titleEl.textContent = clientName || 'Cliente';
+
+  /* Pré-preenche data com a data do agendamento */
+  const dateEl = document.getElementById('sched-gov-date');
+  if (dateEl) dateEl.value = bookingDate || '';
+
+  /* Mostra total acumulado atual do cliente */
+  const customer = (typeof disparoContacts !== 'undefined' ? disparoContacts : [])
+    .find(c => c.id === customerId);
+  const currentTotal = customer ? (customer.totalSpent || 0) : 0;
+  const totalEl = document.getElementById('sched-gov-current-total');
+  if (totalEl) totalEl.textContent = currentTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  /* Limpa campo de valor */
+  const valueEl = document.getElementById('sched-gov-value');
+  if (valueEl) { valueEl.value = ''; setTimeout(() => valueEl.focus(), 120); }
+
+  /* Limpa erro */
+  const errEl = document.getElementById('sched-gov-error');
+  if (errEl) errEl.hidden = true;
+
+  document.getElementById('sched-gov-modal-ov').classList.add('open');
+}
+
+function schedGovModalClose() {
+  document.getElementById('sched-gov-modal-ov').classList.remove('open');
+  _schedGovCustomerId = null;
+}
+
+function schedGovSave() {
+  const customerId = _schedGovCustomerId;
+  if (!customerId) return;
+
+  const uid = _schedUid();
+  if (!uid || !currentUser) return;
+
+  const dateEl = document.getElementById('sched-gov-date');
+  const valueEl = document.getElementById('sched-gov-value');
+  const errEl = document.getElementById('sched-gov-error');
+  const saveBtn = document.getElementById('sched-gov-save-btn');
+
+  const dateStr = dateEl ? dateEl.value : '';
+  const value = parseFloat((valueEl ? valueEl.value : '0') || '0') || 0;
+
+  if (!dateStr) {
+    if (errEl) { errEl.textContent = 'Informe a data da compra.'; errEl.hidden = false; }
+    return;
+  }
+
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<i class="ph ph-circle-notch auth-spin"></i> Salvando…'; }
+
+  /* Busca totalSpent atual para acumular */
+  const customer = (typeof disparoContacts !== 'undefined' ? disparoContacts : [])
+    .find(c => c.id === customerId);
+  const prevTotal = customer ? (customer.totalSpent || 0) : 0;
+  const newTotal = prevTotal + value;
+  const purchaseDate = typeof _inputValToDate === 'function' ? _inputValToDate(dateStr) : new Date(dateStr);
+
+  const prevCount = customer ? (customer.purchaseCount || 0) : 0;
+  const newCount = prevCount + 1;
+
+  const patch = {
+    lastPurchaseDate: purchaseDate
+      ? firebase.firestore.Timestamp.fromDate(purchaseDate)
+      : null,
+    totalSpent: newTotal,
+    purchaseCount: newCount,
+  };
+
+  db.collection('users').doc(uid).collection('customers').doc(customerId)
+    .update({
+      ...patch,
+      updatedBy: currentUser.uid,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    })
+    .then(() => {
+      /* Atualiza memória local */
+      if (customer) {
+        customer.lastPurchaseDate = purchaseDate;
+        customer.totalSpent = newTotal;
+        customer.purchaseCount = newCount;
+      }
+
+      /* Registra no histórico do CRM */
+      const fmtBRL = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      crmWriteHistory(uid, customerId, {
+        type: 'sale_registered',
+        note: `Venda: ${fmtBRL(value)} | Acumulado: ${fmtBRL(newTotal)} | Data: ${new Date(dateStr + 'T12:00:00').toLocaleDateString('pt-BR')}`,
+      }, currentUser.uid);
+
+      schedGovModalClose();
+
+      /* Atualiza tabela de Clientes e insights do CRM */
+      if (typeof clientesRenderTable === 'function') clientesRenderTable();
+      if (typeof crmRenderInsights === 'function') crmRenderInsights();
+
+      if (typeof disparoShowToast === 'function') {
+        disparoShowToast(`Venda registrada! Total do cliente: ${newTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`);
+      }
+    })
+    .catch(err => {
+      console.error('[CRM] schedGovSave erro:', err);
+      if (errEl) { errEl.textContent = 'Erro ao salvar. Tente novamente.'; errEl.hidden = false; }
+    })
+    .finally(() => {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '<i class="ph ph-check"></i> Salvar'; }
+    });
+}
+
 /* ─── Toggle day block ────────────────────────────────────────── */
 function schedToggleDayBlock() {
   const uid = _schedUid();
   if (!_schedSelDate || !uid) return;
-  const dayData   = schedDays[_schedSelDate] || {};
+  const dayData = schedDays[_schedSelDate] || {};
   const newBlocked = !dayData.blocked;
 
   schedDays[_schedSelDate] = { ...dayData, blocked: newBlocked };
 
   const ref = db.collection('users').doc(uid)
-                .collection('sched_days').doc(_schedSelDate);
+    .collection('sched_days').doc(_schedSelDate);
   ref.set({ blocked: newBlocked, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
     .then(() => {
       schedRenderCalendar();
@@ -2496,11 +3258,11 @@ function schedOpenBookingModal(dateStr, bookingId) {
   if (bookingId) {
     const bk = schedBookings.find(b => b.id === bookingId);
     if (bk) {
-      document.getElementById('sched-bk-name').value   = bk.clientName || '';
-      document.getElementById('sched-bk-phone').value  = bk.phone || '';
+      document.getElementById('sched-bk-name').value = bk.clientName || '';
+      document.getElementById('sched-bk-phone').value = bk.phone || '';
       if (dateInput) dateInput.value = bk.date || '';
       if (timeSelect) timeSelect.value = bk.time || '';
-      document.getElementById('sched-bk-notes').value  = bk.notes || '';
+      document.getElementById('sched-bk-notes').value = bk.notes || '';
       document.getElementById('sched-bk-status').value = bk.status || 'pending';
       /* Check services */
       (bk.services || []).forEach(sName => {
@@ -2513,7 +3275,7 @@ function schedOpenBookingModal(dateStr, bookingId) {
     }
   } else {
     /* Clear fields */
-    ['sched-bk-name','sched-bk-phone','sched-bk-notes'].forEach(id => {
+    ['sched-bk-name', 'sched-bk-phone', 'sched-bk-notes'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
@@ -2545,11 +3307,11 @@ function schedSaveBooking() {
   }
 
   const clientName = document.getElementById('sched-bk-name').value.trim();
-  const phone      = document.getElementById('sched-bk-phone').value.trim();
-  const date       = document.getElementById('sched-bk-date').value;
-  const time       = document.getElementById('sched-bk-time').value;
-  const notes      = document.getElementById('sched-bk-notes').value.trim();
-  const status     = document.getElementById('sched-bk-status').value;
+  const phone = document.getElementById('sched-bk-phone').value.trim();
+  const date = document.getElementById('sched-bk-date').value;
+  const time = document.getElementById('sched-bk-time').value;
+  const notes = document.getElementById('sched-bk-notes').value.trim();
+  const status = document.getElementById('sched-bk-status').value;
 
   if (!clientName || !date || !time) {
     const errEl = document.getElementById('sched-bk-error');
@@ -2562,33 +3324,87 @@ function schedSaveBooking() {
     .filter(s => { const cb = document.getElementById(`sched-bk-svc-${s.id}`); return cb && cb.checked; })
     .map(s => s.name);
 
-  const payload = { clientName, phone, date, time, notes, status, services, source: 'admin', updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
-  const col = db.collection('users').doc(_schedUid()).collection('sched_bookings');
+  const uid = _schedUid();
+  const col = db.collection('users').doc(uid).collection('sched_bookings');
+
+  /* Captura status anterior para detectar transição → concluído */
+  const oldBooking = _schedBkEditId ? schedBookings.find(b => b.id === _schedBkEditId) : null;
+  const oldStatus = oldBooking ? oldBooking.status : null;
+  const oldCustomerId = oldBooking ? oldBooking.customerId : null;
 
   const btn = document.getElementById('sched-bk-save-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph ph-circle-notch auth-spin"></i> Salvando...'; }
 
-  const promise = _schedBkEditId
-    ? col.doc(_schedBkEditId).update(payload)
-    : col.add({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  /* Governança: verifica/cria cliente em customers antes de salvar o agendamento */
+  const saveBooking = (customerId) => {
+    const payload = {
+      clientName, phone, date, time, notes, status, services,
+      source: 'admin',
+      customerId: customerId || oldCustomerId || null,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
 
-  promise.then(docRef => {
-    if (_schedBkEditId) {
-      const idx = schedBookings.findIndex(b => b.id === _schedBkEditId);
-      if (idx >= 0) schedBookings[idx] = { ...schedBookings[idx], ...payload };
-    } else {
-      schedBookings.push({ id: docRef.id, ...payload });
-    }
-    schedCloseBookingModal();
-    schedRenderCalendar();
-    if (_schedSelDate === date) schedRenderDayPanel(date);
-    else schedSelectDate(date);
-  }).catch(() => {
-    const errEl = document.getElementById('sched-bk-error');
-    if (errEl) { errEl.textContent = 'Erro ao salvar. Tente novamente.'; errEl.hidden = false; }
-  }).finally(() => {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-floppy-disk"></i> Salvar'; }
-  });
+    const promise = _schedBkEditId
+      ? col.doc(_schedBkEditId).update(payload)
+      : col.add({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+    promise.then(docRef => {
+      const finalBookingId = _schedBkEditId || docRef.id;
+      if (_schedBkEditId) {
+        const idx = schedBookings.findIndex(b => b.id === _schedBkEditId);
+        if (idx >= 0) schedBookings[idx] = { ...schedBookings[idx], ...payload };
+      } else {
+        schedBookings.push({ id: finalBookingId, ...payload });
+      }
+
+      schedCloseBookingModal();
+      schedRenderCalendar();
+      if (_schedSelDate === date) schedRenderDayPanel(date);
+      else schedSelectDate(date);
+
+      const finalCustomerId = payload.customerId;
+
+      /* Registro no histórico: agendamento novo com cliente vinculado */
+      if (finalCustomerId && !_schedBkEditId && currentUser) {
+        crmWriteHistory(uid, finalCustomerId, {
+          type: 'appointment_linked',
+          note: `Agendamento criado — ${_schedFmt(date)}${time ? ' às ' + time : ''}${services.length ? '\nServiços: ' + services.join(', ') : ''}`,
+        }, currentUser.uid);
+      }
+
+      /* Governança: abre modal de venda se acabou de ser marcado como concluído */
+      if (status === 'done' && oldStatus !== 'done' && finalCustomerId) {
+        /* Promove automaticamente a Cliente */
+        if (typeof promoverParaCliente === 'function') {
+          promoverParaCliente(uid, finalCustomerId, currentUser.uid, { via: 'appointment' })
+            .then(() => {
+              /* Atualiza memória local */
+              const c = (typeof disparoContacts !== 'undefined' ? disparoContacts : [])
+                .find(x => x.id === finalCustomerId);
+              if (c) c.isClient = true;
+              if (typeof clientesRenderTable === 'function') clientesRenderTable();
+            })
+            .catch(err => console.error('[CRM] promoverParaCliente (agendamento) erro:', err));
+        }
+        schedOpenGovModal(finalCustomerId, date, clientName);
+      }
+
+    }).catch(() => {
+      const errEl = document.getElementById('sched-bk-error');
+      if (errEl) { errEl.textContent = 'Erro ao salvar. Tente novamente.'; errEl.hidden = false; }
+    }).finally(() => {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-floppy-disk"></i> Salvar'; }
+    });
+  };
+
+  /* Check-in de Governança: vincula agendamento ao cliente em customers */
+  if (phone && typeof crmCheckInForAppointment === 'function' && currentUser) {
+    crmCheckInForAppointment(uid, clientName, phone, currentUser.uid)
+      .then(customerId => saveBooking(customerId))
+      .catch(() => saveBooking(null));
+  } else {
+    saveBooking(null);
+  }
 }
 
 function schedDeleteBooking(id) {
@@ -2658,17 +3474,17 @@ let _schedSvcIsPackage = false;
 function schedSvcTogglePackage() {
   _schedSvcIsPackage = !_schedSvcIsPackage;
   const toggle = document.getElementById('sched-svc-pkg-toggle');
-  const label  = document.getElementById('sched-svc-pkg-label');
+  const label = document.getElementById('sched-svc-pkg-label');
   if (toggle) toggle.setAttribute('aria-checked', String(_schedSvcIsPackage));
   if (toggle) toggle.classList.toggle('active', _schedSvcIsPackage);
-  if (label)  label.textContent = _schedSvcIsPackage ? 'Pacote' : 'Serviço avulso';
+  if (label) label.textContent = _schedSvcIsPackage ? 'Pacote' : 'Serviço avulso';
 }
 
 function schedSvcSave() {
   if (!currentUser) return;
-  const name     = document.getElementById('sched-svc-name').value.trim();
+  const name = document.getElementById('sched-svc-name').value.trim();
   const category = document.getElementById('sched-svc-category').value.trim();
-  const price    = parseFloat(document.getElementById('sched-svc-price').value) || 0;
+  const price = parseFloat(document.getElementById('sched-svc-price').value) || 0;
   const duration = parseInt(document.getElementById('sched-svc-duration').value) || 0;
 
   if (!name) return;
@@ -2701,9 +3517,9 @@ function schedSvcEdit(id) {
   const s = schedServices.find(x => x.id === id);
   if (!s) return;
   _schedSvcEditId = id;
-  document.getElementById('sched-svc-name').value     = s.name     || '';
+  document.getElementById('sched-svc-name').value = s.name || '';
   document.getElementById('sched-svc-category').value = s.category || '';
-  document.getElementById('sched-svc-price').value    = s.price    || '';
+  document.getElementById('sched-svc-price').value = s.price || '';
   document.getElementById('sched-svc-duration').value = s.duration || '';
   const titleEl = document.getElementById('sched-svc-form-title');
   if (titleEl) titleEl.textContent = 'Editar Serviço';
@@ -2715,7 +3531,7 @@ function schedSvcEdit(id) {
 
 function schedSvcCancelEdit() {
   _schedSvcEditId = null;
-  ['sched-svc-name','sched-svc-category','sched-svc-price','sched-svc-duration'].forEach(id => {
+  ['sched-svc-name', 'sched-svc-category', 'sched-svc-price', 'sched-svc-duration'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   const titleEl = document.getElementById('sched-svc-form-title');
@@ -2798,9 +3614,9 @@ function loadSchedDataFromFirestore(uid) {
     .then(snap => {
       if (snap.exists) {
         const d = snap.data();
-        schedConfig.workDays    = d.workDays    || [1,2,3,4,5];
-        schedConfig.defaultTimes = d.defaultTimes || ['08:00','09:00','10:00','11:00','14:00','15:00','16:00','17:00'];
-        schedConfig.whatsapp    = d.whatsapp    || '';
+        schedConfig.workDays = d.workDays || [1, 2, 3, 4, 5];
+        schedConfig.defaultTimes = d.defaultTimes || ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'];
+        schedConfig.whatsapp = d.whatsapp || '';
         _schedApplyConfigToUI();
       }
     });
@@ -2830,7 +3646,7 @@ function loadSchedDataFromFirestore(uid) {
     .catch(err => console.error('[Orbit] sched_bookings load falhou:', err));
 
   /* Day overrides — current and future month */
-  const thisMonth = `${_schedCalYear}-${String(_schedCalMonth + 1).padStart(2,'0')}`;
+  const thisMonth = `${_schedCalYear}-${String(_schedCalMonth + 1).padStart(2, '0')}`;
   db.collection('users').doc(uid).collection('sched_days')
     .where(firebase.firestore.FieldPath.documentId(), '>=', thisMonth)
     .get()
@@ -2854,13 +3670,13 @@ window.addEventListener('load', () => {
    ═══════════════════════════════════════════════════════════════ */
 
 /* ─── Estado ──────────────────────────────────────────────────── */
-let managedTenants   = [];   /* [{ uid, name, avatar? }] */
-let activeTenantUid  = null; /* null = conta própria */
+let managedTenants = [];   /* [{ uid, name, avatar? }] */
+let activeTenantUid = null; /* null = conta própria */
 let activeTenantName = null;
 
 /* ─── Abrir / fechar dropdown ─────────────────────────────────── */
 function toggleTenantDropdown() {
-  const dd  = document.getElementById('tenant-dropdown');
+  const dd = document.getElementById('tenant-dropdown');
   const btn = document.getElementById('tenant-switcher-btn');
   const isOpen = dd.classList.toggle('open');
   btn.setAttribute('aria-expanded', String(isOpen));
@@ -2883,7 +3699,7 @@ function renderTenantDropdown() {
 
   /* Primeiro item: conta própria */
   const ownActive = activeTenantUid === null;
-  const userName  = document.getElementById('auth-user-name')?.textContent || 'Minha conta';
+  const userName = document.getElementById('auth-user-name')?.textContent || 'Minha conta';
 
   let html = `
     <button class="tenant-item ${ownActive ? 'tenant-item--active' : ''}" onclick="switchTenant(null, null)">
@@ -2897,7 +3713,7 @@ function renderTenantDropdown() {
 
   managedTenants.forEach(t => {
     const isActive = activeTenantUid === t.uid;
-    const initials = t.name.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
+    const initials = t.name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
     html += `
       <button class="tenant-item ${isActive ? 'tenant-item--active' : ''}" onclick="switchTenant('${_esc(t.uid)}', '${_esc(t.name)}')">
         <div class="tenant-item-icon">${t.avatar ? `<img src="${_esc(t.avatar)}" alt="${_esc(t.name)}" />` : `<span style="font-size:.7rem;font-weight:700;">${initials}</span>`}</div>
@@ -2914,19 +3730,19 @@ function renderTenantDropdown() {
 
 /* ─── Trocar tenant ───────────────────────────────────────────── */
 function switchTenant(uid, name) {
-  activeTenantUid  = uid;
+  activeTenantUid = uid;
   activeTenantName = name;
 
   /* Atualiza botão */
-  const nameEl  = document.getElementById('tenant-switcher-name');
-  const iconEl  = document.getElementById('tenant-switcher-icon');
+  const nameEl = document.getElementById('tenant-switcher-name');
+  const iconEl = document.getElementById('tenant-switcher-icon');
   const ownName = document.getElementById('auth-user-name')?.textContent || 'Minha conta';
 
   if (uid) {
     if (nameEl) nameEl.textContent = name;
     if (iconEl) {
       const t = managedTenants.find(x => x.uid === uid);
-      const initials = name.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
+      const initials = name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
       iconEl.innerHTML = t?.avatar
         ? `<img src="${_esc(t.avatar)}" alt="${_esc(name)}" />`
         : `<span style="font-size:.65rem;font-weight:700;">${initials}</span>`;
@@ -2937,9 +3753,9 @@ function switchTenant(uid, name) {
   }
 
   /* Fecha dropdown */
-  const dd  = document.getElementById('tenant-dropdown');
+  const dd = document.getElementById('tenant-dropdown');
   const btn = document.getElementById('tenant-switcher-btn');
-  if (dd)  dd.classList.remove('open');
+  if (dd) dd.classList.remove('open');
   if (btn) btn.setAttribute('aria-expanded', 'false');
 
   /* Recarrega dados para o tenant selecionado */
@@ -3013,11 +3829,11 @@ function renderTenantManagedList() {
 }
 
 function tenantAddNew() {
-  const nameEl  = document.getElementById('tenant-input-name');
-  const uidEl   = document.getElementById('tenant-input-uid');
-  const errEl   = document.getElementById('tenant-form-error');
-  const name    = nameEl.value.trim();
-  const uid     = uidEl.value.trim();
+  const nameEl = document.getElementById('tenant-input-name');
+  const uidEl = document.getElementById('tenant-input-uid');
+  const errEl = document.getElementById('tenant-form-error');
+  const name = nameEl.value.trim();
+  const uid = uidEl.value.trim();
 
   if (!name || !uid) {
     errEl.textContent = 'Preencha nome e UID.';
@@ -3034,7 +3850,7 @@ function tenantAddNew() {
   managedTenants.push({ uid, name });
   _saveManagedTenants(() => {
     nameEl.value = '';
-    uidEl.value  = '';
+    uidEl.value = '';
     renderTenantManagedList();
     renderTenantDropdown();
   });
