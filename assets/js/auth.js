@@ -35,6 +35,9 @@ function updateAuthUI(user) {
     userArea.hidden        = false;
     userName.textContent   = name;
     userAvatar.textContent = _authInitials(name);
+    /* Atualiza nome no tenant switcher (conta própria) */
+    const tsName = document.getElementById('tenant-switcher-name');
+    if (tsName && !activeTenantUid) tsName.textContent = name;
   } else {
     btnLogin.hidden  = false;
     userArea.hidden  = true;
@@ -284,6 +287,14 @@ function authLogout() {
     if (typeof cltHistory        !== 'undefined') { cltHistory        = []; typeof updateCltBadge    === 'function' && updateCltBadge();      typeof renderHistoryCLT === 'function' && renderHistoryCLT(); }
     if (typeof disparoContacts   !== 'undefined') { disparoContacts   = []; typeof disparoUpdateStats === 'function' && disparoUpdateStats(); typeof disparoFilter    === 'function' && disparoFilter();    }
     if (typeof _disparoUpdateLimitBar === 'function') _disparoUpdateLimitBar();
+    /* Reset tenant switcher */
+    if (typeof managedTenants !== 'undefined') { managedTenants = []; activeTenantUid = null; activeTenantName = null; }
+    const tenantSwitcher = document.getElementById('tenant-switcher');
+    if (tenantSwitcher) tenantSwitcher.hidden = true;
+    /* Reset scheduling */
+    if (typeof schedBookings !== 'undefined') { schedBookings = []; schedServices = []; schedDays = {}; }
+    if (typeof schedRenderCalendar === 'function') schedRenderCalendar();
+    if (typeof schedRenderServices === 'function') schedRenderServices();
   });
 }
 
@@ -351,9 +362,12 @@ auth.onAuthStateChanged(function (user) {
     }
 
     // Carrega dados do Firestore
-    if (typeof loadKmHistoryFromFirestore      === 'function') loadKmHistoryFromFirestore(user.uid);
-    if (typeof loadCltHistoryFromFirestore     === 'function') loadCltHistoryFromFirestore(user.uid);
-    if (typeof loadKmSettingsFromFirestore     === 'function') loadKmSettingsFromFirestore(user.uid);
-    if (typeof loadDisparoContactsFromFirestore === 'function') loadDisparoContactsFromFirestore(user.uid);
+    if (typeof loadKmHistoryFromFirestore         === 'function') loadKmHistoryFromFirestore(user.uid);
+    if (typeof loadCltHistoryFromFirestore        === 'function') loadCltHistoryFromFirestore(user.uid);
+    if (typeof loadKmSettingsFromFirestore        === 'function') loadKmSettingsFromFirestore(user.uid);
+    if (typeof loadDisparoContactsFromFirestore   === 'function') loadDisparoContactsFromFirestore(user.uid);
+    if (typeof loadDisparoTemplatesFromFirestore  === 'function') loadDisparoTemplatesFromFirestore(user.uid);
+    if (typeof loadSchedDataFromFirestore         === 'function') loadSchedDataFromFirestore(user.uid);
+    if (typeof loadManagedTenants                 === 'function') loadManagedTenants(user.uid);
   }
 });

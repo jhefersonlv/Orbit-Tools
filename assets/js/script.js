@@ -37,6 +37,12 @@ function loadTool(toolId, linkEl) {
   if (target) target.classList.remove('hidden');
   else document.getElementById('tool-coming-soon').classList.remove('hidden');
 
+  /* Hooks de inicialização por ferramenta */
+  if (toolId === 'sched') {
+    schedRenderCalendar();
+    schedRenderServices();
+  }
+
   if (window.innerWidth <= 768) closeSidebar();
 }
 
@@ -652,9 +658,11 @@ const DISPARO_TMPL = `Olá, {nome}! Tudo bem?\n\nVi você no grupo {grupo} e que
 
 const DISPARO_FREE_LIMIT = 100;
 
-let disparoContacts = [];   // sem contatos de exemplo
-let disparoSel      = null;
-let disparoNid      = 1;    // fallback para usuários não logados
+let disparoContacts   = [];
+let disparoSel        = null;
+let disparoNid        = 1;
+let _disparoTagFilter = null;   // string ou null
+let _disparoFUFilter  = null;   // 'today' | 'overdue' | null
 
 const disparoInitials = n => (n || '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
@@ -695,13 +703,31 @@ function disparoRenderList(list) {
   const pct  = plan !== 'orbit' ? Math.round(list.length / DISPARO_FREE_LIMIT * 100) : 0;
 
   el.innerHTML = list.map(c => {
-    const [bg, fg] = disparoPal(c.id);
-    const isActive = String(c.id) === String(disparoSel);
-    return `<div class="disparo-ci${isActive ? ' active' : ''}${c.status === 'sent' ? ' faded' : ''}" onclick="disparoSelectContact('${c.id}')">
+    const [bg, fg]  = disparoPal(c.id);
+    const isActive  = String(c.id) === String(disparoSel);
+    const msgs      = c.messages || [];
+    const lastMsg   = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+    const fuStatus  = _getFollowUpStatus(c.followUpDate);
+
+    const metaLine = lastMsg
+      ? `<div class="disparo-ci-meta"><i class="ph ph-paper-plane-tilt"></i> ${_formatRelativeDate(new Date(lastMsg.date))} · ${msgs.length} msg${msgs.length !== 1 ? 's' : ''}</div>`
+      : '';
+
+    const tagsEl = (c.tags || []).length > 0
+      ? `<div class="disparo-ci-tags">${(c.tags).slice(0, 2).map(t => `<span class="disparo-ci-tag">${_esc(t)}</span>`).join('')}${c.tags.length > 2 ? `<span class="disparo-ci-tag disparo-ci-tag--more">+${c.tags.length - 2}</span>` : ''}</div>`
+      : '';
+
+    const fuDot = fuStatus === 'overdue' ? '<span class="disparo-fu-dot disparo-fu-dot--overdue" title="Follow-up atrasado"></span>'
+                : fuStatus === 'today'   ? '<span class="disparo-fu-dot disparo-fu-dot--today"   title="Follow-up hoje"></span>'
+                : '';
+
+    return `<div class="disparo-ci${isActive ? ' active' : ''}${c.status === 'sent' ? ' faded' : ''}${fuStatus ? ` disparo-ci--fu-${fuStatus}` : ''}" onclick="disparoSelectContact('${c.id}')">
       <div class="disparo-av" style="background:${bg};color:${fg};">${disparoInitials(c.name)}</div>
       <div class="disparo-ci-info">
-        <div class="disparo-ci-name">${c.name}</div>
+        <div class="disparo-ci-name">${c.name} ${fuDot}</div>
         <div class="disparo-ci-sub">${c.company} · ${c.group}</div>
+        ${metaLine}
+        ${tagsEl}
       </div>
       <div class="disparo-dot${c.status === 'sent' ? ' disparo-dot--sent' : ' disparo-dot--pending'}"></div>
     </div>`;
@@ -710,11 +736,25 @@ function disparoRenderList(list) {
 
 function disparoFilter() {
   const q = (document.getElementById('disparo-si').value || '').toLowerCase();
-  disparoRenderList(disparoContacts.filter(c =>
+  const today = new Date().toISOString().split('T')[0];
+
+  let list = disparoContacts.filter(c =>
     c.name.toLowerCase().includes(q) ||
     c.company.toLowerCase().includes(q) ||
     c.group.toLowerCase().includes(q)
-  ));
+  );
+
+  if (_disparoTagFilter) {
+    list = list.filter(c => (c.tags || []).includes(_disparoTagFilter));
+  }
+
+  if (_disparoFUFilter === 'today') {
+    list = list.filter(c => c.followUpDate === today);
+  } else if (_disparoFUFilter === 'overdue') {
+    list = list.filter(c => c.followUpDate && c.followUpDate < today);
+  }
+
+  disparoRenderList(list);
 }
 
 function disparoGetTemplate() {
@@ -743,7 +783,24 @@ function disparoSelectContact(id) {
     ? '<span class="disparo-badge disparo-badge--sent">Enviado</span>'
     : '<span class="disparo-badge disparo-badge--pending">Pendente</span>';
 
-  const sid = String(id);   // ID seguro para uso em template literals
+  const sid  = String(id);
+  const msgs = c.messages || [];
+  const msgsBadge = msgs.length > 0
+    ? `<span class="disparo-msg-badge">${msgs.length}</span>`
+    : '';
+  const msgsHtml = msgs.length === 0
+    ? `<div class="disparo-msg-empty"><i class="ph ph-chat-slash"></i> Nenhuma mensagem enviada ainda. Clique em <strong>Abrir no WhatsApp</strong> para registrar.</div>`
+    : [...msgs].reverse().map(m => {
+        const d       = new Date(m.date);
+        const dateStr = d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        return `<div class="disparo-msg-entry">
+          <div class="disparo-msg-entry-header">
+            <span class="disparo-msg-tmpl"><i class="ph ph-file-text"></i> ${_esc(m.templateName)}</span>
+            <span class="disparo-msg-date"><i class="ph ph-clock"></i> ${dateStr}</span>
+          </div>
+          <p class="disparo-msg-preview">${_esc(m.preview)}${m.preview.length >= 120 ? '…' : ''}</p>
+        </div>`;
+      }).join('');
 
   document.getElementById('disparo-main').innerHTML = `
     <div class="disparo-mheader">
@@ -753,7 +810,7 @@ function disparoSelectContact(id) {
     <div class="disparo-mbody">
       <div class="card disparo-hero-row">
         <div class="disparo-av disparo-av--lg" style="background:${bg};color:${fg};">${disparoInitials(c.name)}</div>
-        <div>
+        <div style="flex:1;min-width:0;">
           <div class="disparo-hero-name">${c.name}</div>
           <div class="disparo-hero-chips">
             <span class="disparo-chip">🏢 ${c.company}</span>
@@ -762,6 +819,42 @@ function disparoSelectContact(id) {
             <span class="disparo-chip">📱 +${c.phone}</span>
           </div>
         </div>
+        <button class="disparo-btn-edit-contact" onclick="disparoOpenEditModal('${sid}')" title="Editar contato">
+          <i class="ph ph-pencil-simple"></i> Editar
+        </button>
+      </div>
+
+      <div class="card disparo-org-card">
+        <div class="disparo-org-row">
+          <span class="disparo-org-label"><i class="ph ph-tag"></i> Etiquetas</span>
+          <div class="disparo-org-tags" id="disparo-tags-${sid}">
+            ${(c.tags || []).map(t => `<span class="disparo-tag-chip">${_esc(t)}<button onclick="disparoRemoveTag('${sid}','${_esc(t)}')" title="Remover"><i class="ph ph-x"></i></button></span>`).join('')}
+            <div class="disparo-tag-add-wrap">
+              <input list="disparo-tags-datalist-${sid}" class="disparo-tag-input" id="disparo-tag-input-${sid}"
+                placeholder="+ etiqueta"
+                onkeydown="if(event.key==='Enter'){disparoAddTag('${sid}');event.preventDefault();}">
+              <datalist id="disparo-tags-datalist-${sid}">${_allTagsDatalist()}</datalist>
+            </div>
+          </div>
+        </div>
+        <div class="disparo-org-row">
+          <span class="disparo-org-label"><i class="ph ph-calendar-check"></i> Follow-up</span>
+          <div class="disparo-followup-row" id="disparo-followup-row-${sid}">
+            <input type="date" class="disparo-followup-input" id="disparo-followup-${sid}"
+              value="${c.followUpDate || ''}"
+              onchange="disparoSaveFollowUp('${sid}')">
+            ${c.followUpDate ? `<button class="disparo-followup-clear" onclick="disparoClearFollowUp('${sid}')" title="Remover follow-up"><i class="ph ph-x"></i></button>` : ''}
+            ${c.followUpDate ? `<span class="disparo-followup-status disparo-followup-status--${_getFollowUpStatus(c.followUpDate) || 'upcoming'}">${_followUpLabel(c.followUpDate)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <div class="disparo-notes-section">
+        <div class="disparo-sec-lbl" style="margin-bottom:8px;"><i class="ph ph-note-pencil"></i> Anotações</div>
+        <textarea class="disparo-notes-ta" id="disparo-notes-${sid}"
+          placeholder="Contexto da conversa, respostas recebidas, próximos passos..."
+          oninput="disparoNoteInput('${sid}')">${_esc(c.notes || '')}</textarea>
+        <div class="disparo-notes-status" id="disparo-notes-status-${sid}"></div>
       </div>
 
       <div class="disparo-prog-row">
@@ -808,6 +901,14 @@ function disparoSelectContact(id) {
           : `<button class="disparo-btn-ghost" onclick="disparoMarkPending('${sid}')"><i class="ph ph-arrow-counter-clockwise"></i> Desmarcar</button>`}
         <button class="disparo-btn-danger" onclick="disparoRemoveContact('${sid}')"><i class="ph ph-trash"></i> Remover</button>
       </div>
+
+      <div class="disparo-msg-history">
+        <div class="disparo-sec-lbl" style="margin-bottom:12px;">
+          <i class="ph ph-paper-plane-tilt"></i> Mensagens enviadas ${msgsBadge}
+        </div>
+        ${msgsHtml}
+      </div>
+
     </div>`;
 }
 
@@ -829,9 +930,41 @@ function disparoInsertVar(v) {
   if (disparoSel) disparoLivePreview(disparoSel);
 }
 
+function _disparoGetActiveTemplateName() {
+  const pill = document.querySelector('#disparo-tmpl-pills .disparo-tmpl-pill.active');
+  if (!pill || !pill.dataset.tmpl) return 'Padrão';
+  const t = disparoTemplates.find(x => x.id === pill.dataset.tmpl);
+  return t ? t.name : 'Padrão';
+}
+
+function _formatRelativeDate(date) {
+  const diff = Math.floor((Date.now() - date) / 86400000);
+  if (diff === 0) return 'Hoje';
+  if (diff === 1) return 'Ontem';
+  if (diff < 7)  return diff + 'd atrás';
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
 function disparoOpenWhatsApp(id) {
   const c = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
-  const url = 'https://api.whatsapp.com/send?phone=' + c.phone.replace(/\D/g,'') + '&text=' + encodeURIComponent(disparoBuildMsg(c));
+
+  const msg = disparoBuildMsg(c);
+
+  /* Registra no histórico de mensagens */
+  const entry = {
+    date:         new Date().toISOString(),
+    templateName: _disparoGetActiveTemplateName(),
+    preview:      msg.slice(0, 120),
+  };
+  if (!c.messages) c.messages = [];
+  c.messages.push(entry);
+
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
+      .update({ messages: c.messages }).catch(() => {});
+  }
+
+  const url = 'https://api.whatsapp.com/send?phone=' + c.phone.replace(/\D/g,'') + '&text=' + encodeURIComponent(msg);
   window.open(url, '_blank');
   disparoMarkSent(id);
   disparoShowToast('WhatsApp aberto! Só apertar Enviar.');
@@ -891,11 +1024,66 @@ function switchDisparoTab(tab, el) {
   if (tab === 'templates') renderDisparoTemplates();
 }
 
+let _disparoEditId = null;   // null = novo contato, string = editar
+
 function disparoOpenModal() {
+  _disparoEditId = null;
+  document.getElementById('disparo-modal-title').textContent = 'Adicionar Contato';
+  const btn = document.getElementById('disparo-modal-confirm-btn');
+  btn.innerHTML = '<i class="ph ph-plus"></i> Adicionar';
+  btn.onclick = disparoAddContact;
   document.getElementById('disparo-ov').classList.add('open');
 }
 
+function disparoOpenEditModal(id) {
+  const c = disparoContacts.find(x => String(x.id) === String(id));
+  if (!c) return;
+  _disparoEditId = String(id);
+
+  document.getElementById('disparo-modal-title').textContent = 'Editar Contato';
+  document.getElementById('d-fn').value   = c.name    !== '—' ? c.name    : '';
+  document.getElementById('d-fc').value   = c.company !== '—' ? c.company : '';
+  document.getElementById('d-fseg').value = c.segment !== '—' ? c.segment : '';
+  document.getElementById('d-fg').value   = c.group   !== '—' ? c.group   : '';
+  document.getElementById('d-fp').value   = c.phone;
+
+  const btn = document.getElementById('disparo-modal-confirm-btn');
+  btn.innerHTML = '<i class="ph ph-check"></i> Salvar alterações';
+  btn.onclick = disparoSaveEdit;
+
+  document.getElementById('disparo-ov').classList.add('open');
+}
+
+function disparoSaveEdit() {
+  const name  = document.getElementById('d-fn').value.trim();
+  const phone = document.getElementById('d-fp').value.trim();
+  if (!name || !phone) { disparoShowToast('Nome e WhatsApp são obrigatórios.', true); return; }
+
+  const c = disparoContacts.find(x => String(x.id) === String(_disparoEditId));
+  if (!c) return;
+
+  c.name    = name;
+  c.company = document.getElementById('d-fc').value.trim()   || '—';
+  c.segment = document.getElementById('d-fseg').value.trim() || '—';
+  c.group   = document.getElementById('d-fg').value.trim()   || '—';
+  c.phone   = phone;
+
+  disparoCloseModal();
+
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(c.id))
+      .update({ name: c.name, company: c.company, segment: c.segment, group: c.group, phone: c.phone })
+      .catch(() => { disparoShowToast('Erro ao salvar. Tente novamente.', true); });
+  }
+
+  disparoShowToast('Contato atualizado!');
+  disparoFilter();
+  disparoSelectContact(c.id);
+  if (typeof renderCRM === 'function') renderCRM();
+}
+
 function disparoCloseModal() {
+  _disparoEditId = null;
   document.getElementById('disparo-ov').classList.remove('open');
   ['d-fn','d-fc','d-fseg','d-fg','d-fp'].forEach(id => { document.getElementById(id).value = ''; });
 }
@@ -922,9 +1110,13 @@ function disparoAddContact() {
     segment:  document.getElementById('d-fseg').value.trim() || '—',
     group:    document.getElementById('d-fg').value.trim()   || '—',
     phone,
-    status: 'pending',
-    stage: 'novo',
-    history: []
+    status:       'pending',
+    stage:        'novo',
+    history:      [],
+    messages:     [],
+    notes:        '',
+    tags:         [],
+    followUpDate: null,
   };
 
   disparoCloseModal();
@@ -984,6 +1176,336 @@ function disparoShowToast(msg, err = false) {
   el.className = 'disparo-toast disparo-toast--show' + (err ? ' disparo-toast--err' : '');
   el.querySelector('i').className = err ? 'ph ph-warning' : 'ph ph-check-circle';
   setTimeout(() => { el.className = 'disparo-toast'; }, 3000);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ANOTAÇÕES RÁPIDAS POR CONTATO
+   ═══════════════════════════════════════════════════════════════ */
+
+let _disparoNotesTimer = null;
+
+function disparoNoteInput(id) {
+  clearTimeout(_disparoNotesTimer);
+  const statusEl = document.getElementById('disparo-notes-status-' + id);
+  if (statusEl) { statusEl.textContent = ''; statusEl.className = 'disparo-notes-status'; }
+  _disparoNotesTimer = setTimeout(() => disparoSaveNote(id), 1500);
+}
+
+function disparoSaveNote(id) {
+  const c  = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
+  const ta = document.getElementById('disparo-notes-' + id);         if (!ta) return;
+  c.notes  = ta.value;
+
+  const statusEl = document.getElementById('disparo-notes-status-' + id);
+  const ok = () => {
+    if (!statusEl) return;
+    statusEl.textContent = 'Salvo ✓';
+    statusEl.className   = 'disparo-notes-status disparo-notes-status--ok';
+    setTimeout(() => { statusEl.textContent = ''; statusEl.className = 'disparo-notes-status'; }, 2000);
+  };
+  const fail = () => {
+    if (!statusEl) return;
+    statusEl.textContent = 'Erro ao salvar';
+    statusEl.className   = 'disparo-notes-status disparo-notes-status--err';
+  };
+
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
+      .update({ notes: c.notes }).then(ok).catch(fail);
+  } else {
+    ok();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ETIQUETAS (TAGS)
+   ═══════════════════════════════════════════════════════════════ */
+
+function _allTagsDatalist() {
+  const all = new Set();
+  disparoContacts.forEach(c => (c.tags || []).forEach(t => all.add(t)));
+  return [...all].map(t => `<option value="${_esc(t)}">`).join('');
+}
+
+function disparoAddTag(id) {
+  const c     = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
+  const input = document.getElementById('disparo-tag-input-' + id);     if (!input) return;
+  const tag   = input.value.trim().toLowerCase();
+  if (!tag || (c.tags || []).includes(tag)) { input.value = ''; return; }
+
+  if (!c.tags) c.tags = [];
+  c.tags.push(tag);
+  input.value = '';
+
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
+      .update({ tags: c.tags }).catch(() => {});
+  }
+
+  _renderContactTags(id);
+  _updateTagFilterChips();
+  disparoFilter();
+}
+
+function disparoRemoveTag(id, tag) {
+  const c = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
+  c.tags  = (c.tags || []).filter(t => t !== tag);
+
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
+      .update({ tags: c.tags }).catch(() => {});
+  }
+
+  _renderContactTags(id);
+  _updateTagFilterChips();
+  if (_disparoTagFilter && !c.tags.includes(_disparoTagFilter)) disparoFilter();
+}
+
+function _renderContactTags(id) {
+  const c         = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
+  const container = document.getElementById('disparo-tags-' + id);          if (!container) return;
+  container.innerHTML =
+    (c.tags || []).map(t =>
+      `<span class="disparo-tag-chip">${_esc(t)}<button onclick="disparoRemoveTag('${id}','${_esc(t)}')" title="Remover"><i class="ph ph-x"></i></button></span>`
+    ).join('') +
+    `<div class="disparo-tag-add-wrap">
+       <input list="disparo-tags-datalist-${id}" class="disparo-tag-input" id="disparo-tag-input-${id}"
+         placeholder="+ etiqueta"
+         onkeydown="if(event.key==='Enter'){disparoAddTag('${id}');event.preventDefault();}">
+       <datalist id="disparo-tags-datalist-${id}">${_allTagsDatalist()}</datalist>
+     </div>`;
+}
+
+function _updateTagFilterChips() {
+  const wrap = document.getElementById('disparo-tag-filter-wrap'); if (!wrap) return;
+  const all  = new Set();
+  disparoContacts.forEach(c => (c.tags || []).forEach(t => all.add(t)));
+
+  if (all.size === 0) { wrap.innerHTML = ''; return; }
+
+  wrap.innerHTML = [...all].map(t =>
+    `<button class="disparo-fchip disparo-fchip--tag${_disparoTagFilter === t ? ' active' : ''}"
+       data-tag="${_esc(t)}" onclick="disparoSetTagFilter('${_esc(t)}')">
+       <i class="ph ph-tag"></i> ${_esc(t)}
+     </button>`
+  ).join('');
+}
+
+function disparoSetTagFilter(tag) {
+  _disparoTagFilter = (_disparoTagFilter === tag) ? null : tag;
+  document.querySelectorAll('.disparo-fchip--tag').forEach(el =>
+    el.classList.toggle('active', el.dataset.tag === _disparoTagFilter)
+  );
+  disparoFilter();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FOLLOW-UP
+   ═══════════════════════════════════════════════════════════════ */
+
+function _getFollowUpStatus(dateStr) {
+  if (!dateStr) return null;
+  const today = new Date().toISOString().split('T')[0];
+  if (dateStr < today) return 'overdue';
+  if (dateStr === today) return 'today';
+  return 'upcoming';
+}
+
+function _followUpLabel(dateStr) {
+  const status = _getFollowUpStatus(dateStr);
+  if (status === 'overdue') {
+    const days = Math.floor((Date.now() - new Date(dateStr)) / 86400000);
+    return `Atrasado ${days}d`;
+  }
+  if (status === 'today') return 'Hoje';
+  const days = Math.floor((new Date(dateStr) - Date.now()) / 86400000) + 1;
+  return `Em ${days}d`;
+}
+
+function disparoSaveFollowUp(id) {
+  const c     = disparoContacts.find(x => String(x.id) === String(id)); if (!c) return;
+  const input = document.getElementById('disparo-followup-' + id);      if (!input) return;
+  c.followUpDate = input.value || null;
+
+  /* Atualiza o botão limpar e o label de status inline */
+  const row = document.getElementById('disparo-followup-row-' + id);
+  if (row) {
+    /* Remove botão e label anteriores se existirem */
+    row.querySelectorAll('.disparo-followup-clear, .disparo-followup-status').forEach(el => el.remove());
+    if (c.followUpDate) {
+      const btn = document.createElement('button');
+      btn.className = 'disparo-followup-clear';
+      btn.title = 'Remover follow-up';
+      btn.innerHTML = '<i class="ph ph-x"></i>';
+      btn.onclick = () => disparoClearFollowUp(id);
+      row.appendChild(btn);
+
+      const lbl = document.createElement('span');
+      const st  = _getFollowUpStatus(c.followUpDate) || 'upcoming';
+      lbl.className   = `disparo-followup-status disparo-followup-status--${st}`;
+      lbl.textContent = _followUpLabel(c.followUpDate);
+      row.appendChild(lbl);
+    }
+  }
+
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    db.collection('users').doc(currentUser.uid).collection('disparo_contacts').doc(String(id))
+      .update({ followUpDate: c.followUpDate }).catch(() => {});
+  }
+
+  disparoFilter();
+  disparoShowToast(c.followUpDate ? 'Follow-up agendado!' : 'Follow-up removido.');
+}
+
+function disparoClearFollowUp(id) {
+  const input = document.getElementById('disparo-followup-' + id);
+  if (input) input.value = '';
+  disparoSaveFollowUp(id);
+}
+
+function disparoToggleFUFilter(type) {
+  _disparoFUFilter = (_disparoFUFilter === type) ? null : type;
+  document.getElementById('fchip-today').classList.toggle('active',   _disparoFUFilter === 'today');
+  document.getElementById('fchip-overdue').classList.toggle('active', _disparoFUFilter === 'overdue');
+  disparoFilter();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   IMPORTAÇÃO DE CONTATOS VIA CSV
+   ═══════════════════════════════════════════════════════════════ */
+
+let _importParsed = [];
+
+function disparoOpenImportModal() {
+  _importParsed = [];
+  document.getElementById('disparo-import-ta').value       = '';
+  document.getElementById('disparo-import-preview').innerHTML = '';
+  document.getElementById('disparo-import-confirm-btn').hidden = true;
+  document.getElementById('disparo-import-ov').classList.add('open');
+}
+
+function disparoCloseImportModal() {
+  document.getElementById('disparo-import-ov').classList.remove('open');
+}
+
+function disparoCloseImportOverlay(e) {
+  if (e.target.id === 'disparo-import-ov') disparoCloseImportModal();
+}
+
+function disparoParseImport() {
+  const raw   = document.getElementById('disparo-import-ta').value.trim();
+  const prev  = document.getElementById('disparo-import-preview');
+  const btn   = document.getElementById('disparo-import-confirm-btn');
+  _importParsed = [];
+
+  if (!raw) {
+    prev.innerHTML = '<p class="import-hint-error">Cole o conteúdo da planilha acima.</p>';
+    btn.hidden = true;
+    return;
+  }
+
+  /* Detecta separador */
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const sep   = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ',';
+
+  const errors = [];
+
+  lines.forEach((line, i) => {
+    const cols    = line.split(sep).map(c => c.trim().replace(/^["']|["']$/g, ''));
+    const [name, phone, company, segment, group] = cols;
+
+    /* Pula linha de cabeçalho (sem dígitos no campo phone) */
+    if (i === 0 && phone && !/\d/.test(phone)) return;
+    if (!name && !phone) return;
+
+    if (!name)  { errors.push(`Linha ${i + 1}: nome ausente`);     return; }
+    if (!phone) { errors.push(`Linha ${i + 1}: WhatsApp ausente`); return; }
+
+    _importParsed.push({
+      name,
+      phone:   phone.replace(/\D/g, ''),
+      company: company || '—',
+      segment: segment || '—',
+      group:   group   || '—',
+    });
+  });
+
+  const plan      = (typeof _userPlan !== 'undefined') ? _userPlan : 'free';
+  const available = plan === 'orbit' ? Infinity : Math.max(0, DISPARO_FREE_LIMIT - disparoContacts.length);
+  const toImport  = plan === 'orbit' ? _importParsed.length : Math.min(_importParsed.length, available);
+  const skipped   = _importParsed.length - toImport;
+
+  let html = '';
+
+  if (_importParsed.length === 0) {
+    html = '<p class="import-hint-error">Nenhum contato válido encontrado. Verifique o formato.</p>';
+    btn.hidden = true;
+  } else {
+    html += `<div class="import-summary">
+      <span class="import-summary-count"><i class="ph ph-check-circle"></i> ${toImport} contato${toImport !== 1 ? 's' : ''} prontos para importar</span>
+      ${skipped > 0 ? `<span class="import-summary-warn"><i class="ph ph-warning"></i> ${skipped} ignorado${skipped !== 1 ? 's' : ''} (limite do plano gratuito)</span>` : ''}
+    </div>
+    <div class="import-preview-wrap">
+      <table class="import-preview-table">
+        <thead><tr><th>Nome</th><th>WhatsApp</th><th>Empresa</th><th>Grupo</th></tr></thead>
+        <tbody>
+          ${_importParsed.slice(0, toImport).map(c =>
+            `<tr><td>${_esc(c.name)}</td><td>${_esc(c.phone)}</td><td>${_esc(c.company)}</td><td>${_esc(c.group)}</td></tr>`
+          ).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+    btn.hidden      = false;
+    btn.textContent = `Importar ${toImport} contato${toImport !== 1 ? 's' : ''}`;
+  }
+
+  if (errors.length) {
+    html += `<div class="import-errors"><strong>Linhas ignoradas:</strong> ${errors.join(' · ')}</div>`;
+  }
+
+  prev.innerHTML = html;
+}
+
+function disparoConfirmImport() {
+  const plan      = (typeof _userPlan !== 'undefined') ? _userPlan : 'free';
+  const available = plan === 'orbit' ? Infinity : Math.max(0, DISPARO_FREE_LIMIT - disparoContacts.length);
+  const toImport  = _importParsed.slice(0, plan === 'orbit' ? _importParsed.length : available);
+
+  if (!toImport.length) return;
+
+  const btn    = document.getElementById('disparo-import-confirm-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ph ph-circle-notch auth-spin"></i> Importando...';
+
+  let done = 0;
+  const finish = () => { done++; if (done === toImport.length) _afterImport(done); };
+
+  toImport.forEach(contact => {
+    const c = { ...contact, status: 'pending', stage: 'novo', history: [], messages: [], notes: '' };
+
+    if (typeof currentUser !== 'undefined' && currentUser) {
+      db.collection('users').doc(currentUser.uid).collection('disparo_contacts').add({
+        ...c, createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }).then(ref => { c.id = ref.id; disparoContacts.push(c); finish(); })
+        .catch(finish);
+    } else {
+      c.id = disparoNid++;
+      disparoContacts.push(c);
+      finish();
+    }
+  });
+}
+
+function _afterImport(count) {
+  disparoCloseImportModal();
+  disparoUpdateStats();
+  disparoFilter();
+  _disparoUpdateLimitBar();
+  _updateTagFilterChips();
+  if (typeof renderCRM === 'function') renderCRM();
+  disparoShowToast(`${count} contato${count !== 1 ? 's' : ''} importado${count !== 1 ? 's' : ''}!`);
+  _importParsed = [];
 }
 
 /* Inicializa ao carregar */
@@ -1230,6 +1752,16 @@ function tmplInsertVar(v) {
    UTILITÁRIOS
    ═══════════════════════════════════════════════════════════════ */
 
+/* ─── Escape HTML (evita XSS ao injetar conteúdo do usuário) ─── */
+function _esc(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /* ─── Máscara de moeda (BRL) ─────────────────────────────────── */
 const CURRENCY_FIELDS = [
   'fuel-price', 'rate-per-km',
@@ -1396,20 +1928,25 @@ function loadDisparoContactsFromFirestore(uid) {
       disparoContacts = snap.docs.map(doc => {
         const d = doc.data();
         return {
-          id:      doc.id,
-          name:    d.name    || '',
-          company: d.company || '—',
-          segment: d.segment || '—',
-          group:   d.group   || '—',
-          phone:   d.phone   || '',
-          status:  d.status  || 'pending',
-          stage:   d.stage   || 'novo',
-          history: d.history || [],
+          id:           doc.id,
+          name:         d.name         || '',
+          company:      d.company      || '—',
+          segment:      d.segment      || '—',
+          group:        d.group        || '—',
+          phone:        d.phone        || '',
+          status:       d.status       || 'pending',
+          stage:        d.stage        || 'novo',
+          history:      d.history      || [],
+          messages:     d.messages     || [],
+          notes:        d.notes        || '',
+          tags:         d.tags         || [],
+          followUpDate: d.followUpDate || null,
         };
       });
       disparoUpdateStats();
       disparoFilter();
       _disparoUpdateLimitBar();
+      _updateTagFilterChips();
     })
     .catch(() => {});
 }
@@ -1427,6 +1964,25 @@ function saveKmSettingsToFirestore() {
     ratePerKm:    parseMasked('rate-per-km'),
     updatedAt:    firebase.firestore.FieldValue.serverTimestamp(),
   });
+}
+
+function loadDisparoTemplatesFromFirestore(uid) {
+  db.collection('users').doc(uid).collection('disparo_templates')
+    .orderBy('createdAt', 'asc')
+    .get()
+    .then(snap => {
+      disparoTemplates = snap.docs.map(doc => {
+        const d = doc.data();
+        return {
+          id:   doc.id,
+          name: d.name || '',
+          body: d.body || '',
+        };
+      });
+      _tmplUpdateBadge();
+      tmplUpdateLimitLabel();
+    })
+    .catch(() => {});
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1670,3 +2226,849 @@ function crmCloseHistoryModal(e) {
 
 /* Garante a primeira renderização do painel ao carregar se já existirem contatos */
 window.addEventListener('load', () => { setTimeout(() => { renderCRM(); }, 500); });
+
+/* ═══════════════════════════════════════════════════════════════
+   AGENDAMENTOS — Module
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Estado ──────────────────────────────────────────────────── */
+let schedConfig   = { workDays: [1,2,3,4,5], defaultTimes: ['08:00','09:00','10:00','11:00','14:00','15:00','16:00','17:00'], whatsapp: '' };
+let schedServices = [];
+let schedBookings = [];
+let schedDays     = {};   /* { 'YYYY-MM-DD': { blocked: bool, times: [], reason: '' } } */
+
+let _schedCalYear  = new Date().getFullYear();
+let _schedCalMonth = new Date().getMonth(); /* 0-indexed */
+let _schedSelDate  = null; /* 'YYYY-MM-DD' */
+let _schedSvcEditId = null;
+let _schedBkEditId  = null;
+
+/* ─── Helpers ─────────────────────────────────────────────────── */
+function _schedDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function _schedFmt(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function _schedTodayStr() { return _schedDateStr(new Date()); }
+
+function _schedStatusLabel(s) {
+  return { pending: 'Pendente', confirmed: 'Confirmado', done: 'Concluído', cancelled: 'Cancelado' }[s] || s;
+}
+
+/* ─── Tabs ────────────────────────────────────────────────────── */
+function switchSchedTab(tab, el) {
+  document.querySelectorAll('#tool-sched .pill-item').forEach(p => {
+    p.classList.remove('active');
+    p.setAttribute('aria-selected', 'false');
+  });
+  if (el) { el.classList.add('active'); el.setAttribute('aria-selected', 'true'); }
+
+  ['agenda','services','config'].forEach(t => {
+    document.getElementById('sched-panel-' + t).classList.toggle('hidden', t !== tab);
+  });
+
+  const labels = { agenda: 'Agenda', services: 'Serviços', config: 'Configurações' };
+  const bc = document.getElementById('sched-breadcrumb');
+  if (bc) bc.textContent = labels[tab] || tab;
+
+  if (tab === 'agenda') schedRenderCalendar();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CALENDAR RENDER
+   ═══════════════════════════════════════════════════════════════ */
+
+function schedRenderCalendar() {
+  const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const label = document.getElementById('sched-cal-month-label');
+  if (label) label.textContent = `${monthNames[_schedCalMonth]} ${_schedCalYear}`;
+
+  const grid = document.getElementById('sched-cal-grid');
+  if (!grid) return;
+
+  const todayStr = _schedTodayStr();
+  const firstDay = new Date(_schedCalYear, _schedCalMonth, 1);
+  const lastDay  = new Date(_schedCalYear, _schedCalMonth + 1, 0);
+
+  let cells = '';
+
+  /* Empty cells before first weekday */
+  for (let i = 0; i < firstDay.getDay(); i++) {
+    cells += `<div class="sched-cal-cell sched-cal-cell--offmonth"></div>`;
+  }
+
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const dt     = new Date(_schedCalYear, _schedCalMonth, d);
+    const dateStr = _schedDateStr(dt);
+    const isToday = dateStr === todayStr;
+    const isSel   = dateStr === _schedSelDate;
+    const dayOfWeek = dt.getDay();
+    const isOffDay  = !schedConfig.workDays.includes(dayOfWeek);
+    const dayData   = schedDays[dateStr] || {};
+    const isBlocked = dayData.blocked;
+
+    /* Count bookings for this day */
+    const dayBookings = schedBookings.filter(b => b.date === dateStr && b.status !== 'cancelled');
+    let dotsHtml = '';
+    if (dayBookings.length > 0) {
+      const dotCount = Math.min(dayBookings.length, 3);
+      dotsHtml = `<div class="sched-cal-dot-row">${'<div class="sched-cal-dot"></div>'.repeat(dotCount)}</div>`;
+    }
+
+    let cls = 'sched-cal-cell';
+    if (isBlocked)       cls += ' sched-cal-cell--blocked';
+    else if (isSel)      cls += ' sched-cal-cell--selected';
+    else if (isToday)    cls += ' sched-cal-cell--today';
+    else if (isOffDay)   cls += ' sched-cal-cell--offday';
+
+    cells += `<div class="${cls}" onclick="schedSelectDate('${dateStr}')">${d}${dotsHtml}</div>`;
+  }
+
+  grid.innerHTML = cells;
+}
+
+function schedCalPrev() {
+  _schedCalMonth--;
+  if (_schedCalMonth < 0) { _schedCalMonth = 11; _schedCalYear--; }
+  schedRenderCalendar();
+}
+
+function schedCalNext() {
+  _schedCalMonth++;
+  if (_schedCalMonth > 11) { _schedCalMonth = 0; _schedCalYear++; }
+  schedRenderCalendar();
+}
+
+/* ─── Select date → render day panel ─────────────────────────── */
+function schedSelectDate(dateStr) {
+  _schedSelDate = dateStr;
+  schedRenderCalendar();
+  schedRenderDayPanel(dateStr);
+}
+
+function schedRenderDayPanel(dateStr) {
+  const titleEl = document.getElementById('sched-day-title');
+  const blockBtn = document.getElementById('sched-day-block-btn');
+  const blockLabel = document.getElementById('sched-day-block-label');
+  const container = document.getElementById('sched-day-bookings');
+
+  if (titleEl) titleEl.textContent = `Agendamentos — ${_schedFmt(dateStr)}`;
+  if (blockBtn) blockBtn.hidden = false;
+
+  const dayData   = schedDays[dateStr] || {};
+  const isBlocked = dayData.blocked;
+
+  if (blockBtn) {
+    blockBtn.classList.toggle('sched-day-block-btn--blocked', isBlocked);
+  }
+  if (blockLabel) blockLabel.textContent = isBlocked ? 'Desbloquear dia' : 'Bloquear dia';
+
+  const dayBookings = schedBookings
+    .filter(b => b.date === dateStr)
+    .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+  if (!container) return;
+
+  if (isBlocked) {
+    container.innerHTML = `
+      <div class="sched-day-empty">
+        <i class="ph ph-lock-simple" style="color:var(--c-red)"></i>
+        <p>Este dia está bloqueado para agendamentos.<br>${dayData.reason ? `<em>${_esc(dayData.reason)}</em>` : ''}</p>
+      </div>`;
+    return;
+  }
+
+  if (dayBookings.length === 0) {
+    container.innerHTML = `
+      <div class="sched-day-empty">
+        <i class="ph ph-calendar-blank"></i>
+        <p>Nenhum agendamento para este dia.</p>
+        <button class="sched-btn-add-booking" style="margin-top:8px;" onclick="schedOpenBookingModal('${dateStr}')">
+          <i class="ph ph-plus"></i> Novo Agendamento
+        </button>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = dayBookings.map(b => {
+    const svcChips = (b.services || []).map(s => `<span class="sched-bk-svc-chip">${_esc(s)}</span>`).join('');
+    const cls = `sched-booking-card sched-booking-card--${b.status || 'pending'}`;
+    const statusCls = `sched-status-badge sched-status-badge--${b.status || 'pending'}`;
+    const phoneLink = b.phone ? `<a href="https://wa.me/${b.phone.replace(/\D/g,'')}" target="_blank" class="sched-bk-phone"><i class="ph ph-whatsapp-logo"></i>${_esc(b.phone)}</a>` : '';
+    return `
+      <div class="${cls}">
+        <div class="sched-bk-card-top">
+          <span class="sched-bk-time-badge"><i class="ph ph-clock"></i>${_esc(b.time || '—')}</span>
+          <span class="${statusCls}">${_schedStatusLabel(b.status || 'pending')}</span>
+        </div>
+        <div class="sched-bk-client">${_esc(b.clientName || '—')}</div>
+        ${phoneLink}
+        ${svcChips ? `<div class="sched-bk-svcs">${svcChips}</div>` : ''}
+        ${b.notes ? `<div style="font-size:.8rem;color:var(--c-mid);">${_esc(b.notes)}</div>` : ''}
+        <div class="sched-bk-card-actions">
+          <button class="sched-bk-action-btn" onclick="schedOpenBookingModal('${dateStr}', '${b.id}')"><i class="ph ph-pencil"></i> Editar</button>
+          ${b.phone ? `<a href="https://wa.me/${b.phone.replace(/\D/g,'')}" target="_blank" class="sched-bk-action-btn sched-bk-action-btn--wa"><i class="ph ph-whatsapp-logo"></i> WhatsApp</a>` : ''}
+          <button class="sched-bk-action-btn sched-bk-action-btn--danger" onclick="schedDeleteBooking('${b.id}')"><i class="ph ph-trash"></i> Excluir</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ─── Toggle day block ────────────────────────────────────────── */
+function schedToggleDayBlock() {
+  if (!_schedSelDate || !currentUser) return;
+  const dayData   = schedDays[_schedSelDate] || {};
+  const newBlocked = !dayData.blocked;
+
+  schedDays[_schedSelDate] = { ...dayData, blocked: newBlocked };
+
+  const ref = db.collection('users').doc(currentUser.uid)
+                .collection('sched_days').doc(_schedSelDate);
+  ref.set({ blocked: newBlocked, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
+    .then(() => {
+      schedRenderCalendar();
+      schedRenderDayPanel(_schedSelDate);
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BOOKING MODAL
+   ═══════════════════════════════════════════════════════════════ */
+
+function schedOpenBookingModal(dateStr, bookingId) {
+  _schedBkEditId = bookingId || null;
+
+  const ov = document.getElementById('sched-booking-ov');
+  const titleEl = document.getElementById('sched-booking-modal-title');
+  const saveBtnEl = document.getElementById('sched-bk-save-btn');
+
+  if (titleEl) titleEl.innerHTML = bookingId
+    ? '<i class="ph ph-pencil"></i> Editar Agendamento'
+    : '<i class="ph ph-calendar-plus"></i> Novo Agendamento';
+
+  /* Populate time select */
+  const timeSelect = document.getElementById('sched-bk-time');
+  if (timeSelect) {
+    const times = schedConfig.defaultTimes || [];
+    timeSelect.innerHTML = '<option value="">Selecione...</option>' +
+      times.map(t => `<option value="${t}">${t}</option>`).join('');
+  }
+
+  /* Populate services checkboxes */
+  const svcList = document.getElementById('sched-bk-services-list');
+  if (svcList) {
+    if (schedServices.length === 0) {
+      svcList.innerHTML = '<span class="sched-bk-no-svc">Nenhum serviço cadastrado.</span>';
+    } else {
+      svcList.innerHTML = schedServices.map(s =>
+        `<label class="sched-bk-svc-check">
+           <input type="checkbox" value="${_esc(s.name)}" id="sched-bk-svc-${s.id}" />
+           ${_esc(s.name)}${s.price ? ` — R$ ${Number(s.price).toFixed(2)}` : ''}
+         </label>`
+      ).join('');
+    }
+  }
+
+  /* Set date */
+  const dateInput = document.getElementById('sched-bk-date');
+  if (dateInput) dateInput.value = dateStr || _schedSelDate || _schedTodayStr();
+
+  /* If editing, pre-fill */
+  if (bookingId) {
+    const bk = schedBookings.find(b => b.id === bookingId);
+    if (bk) {
+      document.getElementById('sched-bk-name').value   = bk.clientName || '';
+      document.getElementById('sched-bk-phone').value  = bk.phone || '';
+      if (dateInput) dateInput.value = bk.date || '';
+      if (timeSelect) timeSelect.value = bk.time || '';
+      document.getElementById('sched-bk-notes').value  = bk.notes || '';
+      document.getElementById('sched-bk-status').value = bk.status || 'pending';
+      /* Check services */
+      (bk.services || []).forEach(sName => {
+        const found = schedServices.find(s => s.name === sName);
+        if (found) {
+          const cb = document.getElementById(`sched-bk-svc-${found.id}`);
+          if (cb) cb.checked = true;
+        }
+      });
+    }
+  } else {
+    /* Clear fields */
+    ['sched-bk-name','sched-bk-phone','sched-bk-notes'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    const statusSel = document.getElementById('sched-bk-status');
+    if (statusSel) statusSel.value = 'pending';
+  }
+
+  const errEl = document.getElementById('sched-bk-error');
+  if (errEl) { errEl.textContent = ''; errEl.hidden = true; }
+
+  if (ov) ov.classList.add('open');
+}
+
+function schedCloseBookingModal() {
+  const ov = document.getElementById('sched-booking-ov');
+  if (ov) ov.classList.remove('open');
+  _schedBkEditId = null;
+}
+
+function schedCloseBookingOverlay(e) {
+  if (e.target.id === 'sched-booking-ov') schedCloseBookingModal();
+}
+
+function schedSaveBooking() {
+  if (!currentUser) {
+    const errEl = document.getElementById('sched-bk-error');
+    if (errEl) { errEl.textContent = 'Você precisa estar logado para salvar.'; errEl.hidden = false; }
+    return;
+  }
+
+  const clientName = document.getElementById('sched-bk-name').value.trim();
+  const phone      = document.getElementById('sched-bk-phone').value.trim();
+  const date       = document.getElementById('sched-bk-date').value;
+  const time       = document.getElementById('sched-bk-time').value;
+  const notes      = document.getElementById('sched-bk-notes').value.trim();
+  const status     = document.getElementById('sched-bk-status').value;
+
+  if (!clientName || !date || !time) {
+    const errEl = document.getElementById('sched-bk-error');
+    if (errEl) { errEl.textContent = 'Nome, data e horário são obrigatórios.'; errEl.hidden = false; }
+    return;
+  }
+
+  /* Collect checked services */
+  const services = schedServices
+    .filter(s => { const cb = document.getElementById(`sched-bk-svc-${s.id}`); return cb && cb.checked; })
+    .map(s => s.name);
+
+  const payload = { clientName, phone, date, time, notes, status, services, source: 'admin', updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+  const col = db.collection('users').doc(currentUser.uid).collection('sched_bookings');
+
+  const btn = document.getElementById('sched-bk-save-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph ph-circle-notch auth-spin"></i> Salvando...'; }
+
+  const promise = _schedBkEditId
+    ? col.doc(_schedBkEditId).update(payload)
+    : col.add({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+  promise.then(docRef => {
+    if (_schedBkEditId) {
+      const idx = schedBookings.findIndex(b => b.id === _schedBkEditId);
+      if (idx >= 0) schedBookings[idx] = { ...schedBookings[idx], ...payload };
+    } else {
+      schedBookings.push({ id: docRef.id, ...payload });
+    }
+    schedCloseBookingModal();
+    schedRenderCalendar();
+    if (_schedSelDate === date) schedRenderDayPanel(date);
+    else schedSelectDate(date);
+  }).catch(() => {
+    const errEl = document.getElementById('sched-bk-error');
+    if (errEl) { errEl.textContent = 'Erro ao salvar. Tente novamente.'; errEl.hidden = false; }
+  }).finally(() => {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-floppy-disk"></i> Salvar'; }
+  });
+}
+
+function schedDeleteBooking(id) {
+  if (!currentUser) return;
+  if (!confirm('Excluir este agendamento?')) return;
+  db.collection('users').doc(currentUser.uid).collection('sched_bookings').doc(id).delete()
+    .then(() => {
+      schedBookings = schedBookings.filter(b => b.id !== id);
+      schedRenderCalendar();
+      if (_schedSelDate) schedRenderDayPanel(_schedSelDate);
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SERVICES CRUD
+   ═══════════════════════════════════════════════════════════════ */
+
+function schedRenderServices() {
+  const list = document.getElementById('sched-svc-list');
+  const count = document.getElementById('sched-svc-count');
+  if (count) count.textContent = schedServices.length || '';
+
+  if (!list) return;
+  if (schedServices.length === 0) {
+    list.innerHTML = '<div class="sched-svc-empty">Nenhum serviço cadastrado ainda.</div>';
+    return;
+  }
+
+  list.innerHTML = schedServices.map(s => {
+    const meta = [s.category, s.duration ? `${s.duration} min` : ''].filter(Boolean).join(' · ');
+    const imgThumb = s.imageUrl
+      ? `<img src="${_esc(s.imageUrl)}" alt="${_esc(s.name)}" class="sched-svc-card-thumb" />`
+      : `<div class="sched-svc-card-thumb sched-svc-card-thumb--empty"><i class="ph ph-image"></i></div>`;
+    const pkgBadge = s.isPackage ? `<span class="sched-svc-pkg-tag">Pacote</span>` : '';
+    const siteBadge = s.badge ? `<span class="sched-svc-highlight-tag">${_esc(s.badge)}</span>` : '';
+    return `
+      <div class="sched-svc-card">
+        ${imgThumb}
+        <div class="sched-svc-card-info">
+          <div class="sched-svc-card-name">${_esc(s.name)} ${pkgBadge} ${siteBadge}</div>
+          ${meta ? `<div class="sched-svc-card-meta">${_esc(meta)}</div>` : ''}
+        </div>
+        ${s.price ? `<div class="sched-svc-card-price">R$ ${Number(s.price).toFixed(2)}</div>` : ''}
+        <div class="sched-svc-card-actions">
+          <button class="sched-svc-btn" onclick="schedSvcEdit('${s.id}')"><i class="ph ph-pencil"></i></button>
+          <button class="sched-svc-btn sched-svc-btn--del" onclick="schedSvcDelete('${s.id}')"><i class="ph ph-trash"></i></button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ─── Preview thumbnail ao digitar URL ───────────────────────── */
+function schedSvcPreviewImg(input, previewId) {
+  const el = document.getElementById(previewId);
+  if (!el) return;
+  const url = input.value.trim();
+  if (url) {
+    el.innerHTML = `<img src="${url}" alt="preview" onerror="this.parentElement.innerHTML='<i class=\\'ph ph-image-broken\\'></i>'" />`;
+  } else {
+    el.innerHTML = '<i class="ph ph-image"></i>';
+  }
+}
+
+/* ─── Toggle pacote ───────────────────────────────────────────── */
+let _schedSvcIsPackage = false;
+function schedSvcTogglePackage() {
+  _schedSvcIsPackage = !_schedSvcIsPackage;
+  const toggle = document.getElementById('sched-svc-pkg-toggle');
+  const label  = document.getElementById('sched-svc-pkg-label');
+  if (toggle) toggle.setAttribute('aria-checked', String(_schedSvcIsPackage));
+  if (toggle) toggle.classList.toggle('active', _schedSvcIsPackage);
+  if (label)  label.textContent = _schedSvcIsPackage ? 'Pacote' : 'Serviço avulso';
+}
+
+function schedSvcSave() {
+  if (!currentUser) return;
+  const name      = document.getElementById('sched-svc-name').value.trim();
+  const category  = document.getElementById('sched-svc-category').value.trim();
+  const price     = parseFloat(document.getElementById('sched-svc-price').value) || 0;
+  const duration  = parseInt(document.getElementById('sched-svc-duration').value) || 0;
+  const imageUrl  = document.getElementById('sched-svc-image').value.trim();
+  const imageUrl2 = document.getElementById('sched-svc-image2').value.trim();
+  const badge     = document.getElementById('sched-svc-badge').value.trim();
+  const isPackage = _schedSvcIsPackage;
+
+  if (!name) return;
+
+  const payload = { name, category, price, duration, imageUrl, imageUrl2, badge, isPackage,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+  const col = db.collection('users').doc(currentUser.uid).collection('sched_services');
+
+  const btn = document.getElementById('sched-svc-save-btn');
+  if (btn) btn.disabled = true;
+
+  const promise = _schedSvcEditId
+    ? col.doc(_schedSvcEditId).update(payload)
+    : col.add({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+  promise.then(docRef => {
+    if (_schedSvcEditId) {
+      const idx = schedServices.findIndex(s => s.id === _schedSvcEditId);
+      if (idx >= 0) schedServices[idx] = { ...schedServices[idx], ...payload };
+    } else {
+      schedServices.push({ id: docRef.id, ...payload });
+    }
+    schedSvcCancelEdit();
+    schedRenderServices();
+  }).finally(() => {
+    if (btn) btn.disabled = false;
+  });
+}
+
+function schedSvcEdit(id) {
+  const s = schedServices.find(x => x.id === id);
+  if (!s) return;
+  _schedSvcEditId = id;
+  document.getElementById('sched-svc-name').value      = s.name     || '';
+  document.getElementById('sched-svc-category').value  = s.category || '';
+  document.getElementById('sched-svc-price').value     = s.price    || '';
+  document.getElementById('sched-svc-duration').value  = s.duration || '';
+  document.getElementById('sched-svc-image').value     = s.imageUrl  || '';
+  document.getElementById('sched-svc-image2').value    = s.imageUrl2 || '';
+  document.getElementById('sched-svc-badge').value     = s.badge     || '';
+  /* Preview thumbnails */
+  const img1 = document.getElementById('sched-svc-img-preview');
+  const img2 = document.getElementById('sched-svc-img-preview2');
+  if (img1) img1.innerHTML = s.imageUrl  ? `<img src="${_esc(s.imageUrl)}"  alt="" />` : '<i class="ph ph-image"></i>';
+  if (img2) img2.innerHTML = s.imageUrl2 ? `<img src="${_esc(s.imageUrl2)}" alt="" />` : '<i class="ph ph-image"></i>';
+  /* Toggle pacote */
+  _schedSvcIsPackage = !!s.isPackage;
+  const toggle = document.getElementById('sched-svc-pkg-toggle');
+  const pkgLbl = document.getElementById('sched-svc-pkg-label');
+  if (toggle) { toggle.setAttribute('aria-checked', String(_schedSvcIsPackage)); toggle.classList.toggle('active', _schedSvcIsPackage); }
+  if (pkgLbl)  pkgLbl.textContent = _schedSvcIsPackage ? 'Pacote' : 'Serviço avulso';
+
+  const titleEl = document.getElementById('sched-svc-form-title');
+  if (titleEl) titleEl.textContent = 'Editar Serviço';
+  const cancelBtn = document.getElementById('sched-svc-cancel-btn');
+  if (cancelBtn) cancelBtn.hidden = false;
+  /* Scroll to form */
+  document.getElementById('sched-svc-name').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  document.getElementById('sched-svc-name').focus();
+}
+
+function schedSvcCancelEdit() {
+  _schedSvcEditId = null;
+  _schedSvcIsPackage = false;
+  ['sched-svc-name','sched-svc-category','sched-svc-price','sched-svc-duration',
+   'sched-svc-image','sched-svc-image2','sched-svc-badge'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const img1 = document.getElementById('sched-svc-img-preview');
+  const img2 = document.getElementById('sched-svc-img-preview2');
+  if (img1) img1.innerHTML = '<i class="ph ph-image"></i>';
+  if (img2) img2.innerHTML = '<i class="ph ph-image"></i>';
+  const toggle = document.getElementById('sched-svc-pkg-toggle');
+  const pkgLbl = document.getElementById('sched-svc-pkg-label');
+  if (toggle) { toggle.setAttribute('aria-checked', 'false'); toggle.classList.remove('active'); }
+  if (pkgLbl)  pkgLbl.textContent = 'Serviço avulso';
+  const titleEl = document.getElementById('sched-svc-form-title');
+  if (titleEl) titleEl.textContent = 'Novo Serviço';
+  const cancelBtn = document.getElementById('sched-svc-cancel-btn');
+  if (cancelBtn) cancelBtn.hidden = true;
+}
+
+function schedSvcDelete(id) {
+  if (!currentUser) return;
+  if (!confirm('Excluir este serviço?')) return;
+  db.collection('users').doc(currentUser.uid).collection('sched_services').doc(id).delete()
+    .then(() => {
+      schedServices = schedServices.filter(s => s.id !== id);
+      schedRenderServices();
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CONFIG
+   ═══════════════════════════════════════════════════════════════ */
+
+function schedToggleWorkday(day) {
+  const btn = document.querySelector(`.sched-day-pill[data-day="${day}"]`);
+  if (!btn) return;
+  const idx = schedConfig.workDays.indexOf(day);
+  if (idx >= 0) {
+    schedConfig.workDays.splice(idx, 1);
+    btn.classList.remove('active');
+  } else {
+    schedConfig.workDays.push(day);
+    btn.classList.add('active');
+  }
+}
+
+function schedSaveConfig() {
+  if (!currentUser) return;
+
+  const timesRaw = document.getElementById('sched-times-ta').value;
+  schedConfig.defaultTimes = timesRaw.split('\n')
+    .map(t => t.trim())
+    .filter(t => /^\d{2}:\d{2}$/.test(t));
+  schedConfig.whatsapp = document.getElementById('sched-whatsapp').value.trim();
+
+  const statusEl = document.getElementById('sched-cfg-status');
+
+  db.collection('users').doc(currentUser.uid)
+    .collection('sched_config').doc('main')
+    .set({ ...schedConfig, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+    .then(() => {
+      if (statusEl) { statusEl.textContent = 'Configurações salvas!'; setTimeout(() => { statusEl.textContent = ''; }, 2500); }
+    })
+    .catch(() => {
+      if (statusEl) { statusEl.textContent = 'Erro ao salvar.'; statusEl.style.color = 'var(--c-red)'; }
+    });
+}
+
+function _schedApplyConfigToUI() {
+  /* Work days */
+  document.querySelectorAll('.sched-day-pill').forEach(btn => {
+    const day = parseInt(btn.dataset.day);
+    btn.classList.toggle('active', schedConfig.workDays.includes(day));
+  });
+  /* Times */
+  const ta = document.getElementById('sched-times-ta');
+  if (ta) ta.value = (schedConfig.defaultTimes || []).join('\n');
+  /* WhatsApp */
+  const wa = document.getElementById('sched-whatsapp');
+  if (wa) wa.value = schedConfig.whatsapp || '';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FIRESTORE — load / save
+   ═══════════════════════════════════════════════════════════════ */
+
+function loadSchedDataFromFirestore(uid) {
+  /* Config */
+  db.collection('users').doc(uid).collection('sched_config').doc('main').get()
+    .then(snap => {
+      if (snap.exists) {
+        const d = snap.data();
+        schedConfig.workDays    = d.workDays    || [1,2,3,4,5];
+        schedConfig.defaultTimes = d.defaultTimes || ['08:00','09:00','10:00','11:00','14:00','15:00','16:00','17:00'];
+        schedConfig.whatsapp    = d.whatsapp    || '';
+        _schedApplyConfigToUI();
+      }
+    });
+
+  /* Services */
+  db.collection('users').doc(uid).collection('sched_services').orderBy('createdAt').get()
+    .then(snap => {
+      schedServices = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      schedRenderServices();
+    });
+
+  /* Bookings — last 90 days + future */
+  const since = new Date();
+  since.setDate(since.getDate() - 90);
+  const sinceStr = _schedDateStr(since);
+  db.collection('users').doc(uid).collection('sched_bookings')
+    .where('date', '>=', sinceStr)
+    .orderBy('date').orderBy('time').get()
+    .then(snap => {
+      schedBookings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      schedRenderCalendar();
+    });
+
+  /* Day overrides — current and future month */
+  const thisMonth = `${_schedCalYear}-${String(_schedCalMonth + 1).padStart(2,'0')}`;
+  db.collection('users').doc(uid).collection('sched_days')
+    .where(firebase.firestore.FieldPath.documentId(), '>=', thisMonth)
+    .get()
+    .then(snap => {
+      snap.docs.forEach(d => { schedDays[d.id] = d.data(); });
+      schedRenderCalendar();
+    });
+}
+
+/* Initialize calendar on page load if module is active */
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    if (!document.getElementById('tool-sched').classList.contains('hidden')) {
+      schedRenderCalendar();
+    }
+  }, 200);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   TENANT SWITCHER
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Estado ──────────────────────────────────────────────────── */
+let managedTenants   = [];   /* [{ uid, name, avatar? }] */
+let activeTenantUid  = null; /* null = conta própria */
+let activeTenantName = null;
+
+/* ─── Abrir / fechar dropdown ─────────────────────────────────── */
+function toggleTenantDropdown() {
+  const dd  = document.getElementById('tenant-dropdown');
+  const btn = document.getElementById('tenant-switcher-btn');
+  const isOpen = dd.classList.toggle('open');
+  btn.setAttribute('aria-expanded', String(isOpen));
+}
+
+document.addEventListener('click', function (e) {
+  const sw = document.getElementById('tenant-switcher');
+  const dd = document.getElementById('tenant-dropdown');
+  if (sw && dd && !sw.contains(e.target)) {
+    dd.classList.remove('open');
+    const btn = document.getElementById('tenant-switcher-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+});
+
+/* ─── Renderizar lista do dropdown ────────────────────────────── */
+function renderTenantDropdown() {
+  const list = document.getElementById('tenant-list');
+  if (!list) return;
+
+  /* Primeiro item: conta própria */
+  const ownActive = activeTenantUid === null;
+  const userName  = document.getElementById('auth-user-name')?.textContent || 'Minha conta';
+
+  let html = `
+    <button class="tenant-item ${ownActive ? 'tenant-item--active' : ''}" onclick="switchTenant(null, null)">
+      <div class="tenant-item-icon"><i class="ph ph-user-circle"></i></div>
+      <div class="tenant-item-info">
+        <div class="tenant-item-name">${_esc(userName)}</div>
+        <div class="tenant-item-sub">Conta própria</div>
+      </div>
+      ${ownActive ? '<i class="ph ph-check tenant-item-check"></i>' : ''}
+    </button>`;
+
+  managedTenants.forEach(t => {
+    const isActive = activeTenantUid === t.uid;
+    const initials = t.name.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
+    html += `
+      <button class="tenant-item ${isActive ? 'tenant-item--active' : ''}" onclick="switchTenant('${_esc(t.uid)}', '${_esc(t.name)}')">
+        <div class="tenant-item-icon">${t.avatar ? `<img src="${_esc(t.avatar)}" alt="${_esc(t.name)}" />` : `<span style="font-size:.7rem;font-weight:700;">${initials}</span>`}</div>
+        <div class="tenant-item-info">
+          <div class="tenant-item-name">${_esc(t.name)}</div>
+          <div class="tenant-item-sub">Cliente</div>
+        </div>
+        ${isActive ? '<i class="ph ph-check tenant-item-check"></i>' : ''}
+      </button>`;
+  });
+
+  list.innerHTML = html;
+}
+
+/* ─── Trocar tenant ───────────────────────────────────────────── */
+function switchTenant(uid, name) {
+  activeTenantUid  = uid;
+  activeTenantName = name;
+
+  /* Atualiza botão */
+  const nameEl  = document.getElementById('tenant-switcher-name');
+  const iconEl  = document.getElementById('tenant-switcher-icon');
+  const ownName = document.getElementById('auth-user-name')?.textContent || 'Minha conta';
+
+  if (uid) {
+    if (nameEl) nameEl.textContent = name;
+    if (iconEl) {
+      const t = managedTenants.find(x => x.uid === uid);
+      const initials = name.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
+      iconEl.innerHTML = t?.avatar
+        ? `<img src="${_esc(t.avatar)}" alt="${_esc(name)}" />`
+        : `<span style="font-size:.65rem;font-weight:700;">${initials}</span>`;
+    }
+  } else {
+    if (nameEl) nameEl.textContent = ownName;
+    if (iconEl) iconEl.innerHTML = '<i class="ph ph-user-circle"></i>';
+  }
+
+  /* Fecha dropdown */
+  const dd  = document.getElementById('tenant-dropdown');
+  const btn = document.getElementById('tenant-switcher-btn');
+  if (dd)  dd.classList.remove('open');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+
+  /* Recarrega dados para o tenant selecionado */
+  const targetUid = uid || (currentUser ? currentUser.uid : null);
+  if (!targetUid) return;
+
+  /* Reset e recarga do módulo de Agendamentos */
+  schedBookings = []; schedServices = []; schedDays = {};
+  schedRenderCalendar();
+  schedRenderServices();
+  loadSchedDataFromFirestore(targetUid);
+
+  renderTenantDropdown();
+}
+
+/* ─── Carregar tenants do Firestore ───────────────────────────── */
+function loadManagedTenants(uid) {
+  db.collection('users').doc(uid).get()
+    .then(snap => {
+      const data = snap.exists ? snap.data() : {};
+      managedTenants = data.managedTenants || [];
+
+      const switcher = document.getElementById('tenant-switcher');
+      if (switcher) switcher.hidden = false;
+
+      /* Atualiza nome próprio no botão */
+      const nameEl = document.getElementById('tenant-switcher-name');
+      if (nameEl && !activeTenantUid) {
+        nameEl.textContent = document.getElementById('auth-user-name')?.textContent || 'Minha conta';
+      }
+
+      renderTenantDropdown();
+    });
+}
+
+/* ─── Modal de gerenciar tenants ──────────────────────────────── */
+function openTenantModal() {
+  /* Fecha dropdown antes */
+  document.getElementById('tenant-dropdown')?.classList.remove('open');
+  document.getElementById('tenant-switcher-btn')?.setAttribute('aria-expanded', 'false');
+
+  renderTenantManagedList();
+  document.getElementById('tenant-modal-ov').classList.add('open');
+}
+
+function closeTenantModal() {
+  document.getElementById('tenant-modal-ov').classList.remove('open');
+}
+
+function closeTenantModalOverlay(e) {
+  if (e.target.id === 'tenant-modal-ov') closeTenantModal();
+}
+
+function renderTenantManagedList() {
+  const list = document.getElementById('tenant-managed-list');
+  if (!list) return;
+  if (managedTenants.length === 0) {
+    list.innerHTML = '<p style="font-size:.84rem;color:var(--c-mid);">Nenhum cliente adicionado ainda.</p>';
+    return;
+  }
+  list.innerHTML = managedTenants.map((t, i) => `
+    <div class="tenant-managed-item">
+      <div style="flex:1;min-width:0;">
+        <div class="tenant-managed-item-name">${_esc(t.name)}</div>
+        <div class="tenant-managed-item-uid">${_esc(t.uid)}</div>
+      </div>
+      <button class="tenant-managed-item-del" onclick="tenantRemove(${i})" title="Remover">
+        <i class="ph ph-trash"></i>
+      </button>
+    </div>`).join('');
+}
+
+function tenantAddNew() {
+  const nameEl  = document.getElementById('tenant-input-name');
+  const uidEl   = document.getElementById('tenant-input-uid');
+  const errEl   = document.getElementById('tenant-form-error');
+  const name    = nameEl.value.trim();
+  const uid     = uidEl.value.trim();
+
+  if (!name || !uid) {
+    errEl.textContent = 'Preencha nome e UID.';
+    errEl.hidden = false;
+    return;
+  }
+  if (managedTenants.some(t => t.uid === uid)) {
+    errEl.textContent = 'Este UID já está na lista.';
+    errEl.hidden = false;
+    return;
+  }
+  errEl.hidden = true;
+
+  managedTenants.push({ uid, name });
+  _saveManagedTenants(() => {
+    nameEl.value = '';
+    uidEl.value  = '';
+    renderTenantManagedList();
+    renderTenantDropdown();
+  });
+}
+
+function tenantRemove(idx) {
+  managedTenants.splice(idx, 1);
+  /* Se o tenant removido era o ativo, volta para conta própria */
+  if (activeTenantUid && !managedTenants.some(t => t.uid === activeTenantUid)) {
+    switchTenant(null, null);
+  }
+  _saveManagedTenants(() => {
+    renderTenantManagedList();
+    renderTenantDropdown();
+  });
+}
+
+function _saveManagedTenants(cb) {
+  if (!currentUser) return;
+  db.collection('users').doc(currentUser.uid)
+    .update({ managedTenants })
+    .then(() => { if (cb) cb(); })
+    .catch(() => { if (cb) cb(); }); /* falha silenciosa — UI já atualizou */
+}

@@ -49,6 +49,10 @@
         <i class="ph ph-kanban"></i>
         <span>CRM & Leads</span>
       </a>
+      <a href="#" class="nav-item" data-tool="sched" onclick="loadTool('sched', this)">
+        <i class="ph ph-calendar-blank"></i>
+        <span>Agendamentos</span>
+      </a>
       <div class="nav-item nav-item--soon">
         <i class="ph ph-tag"></i>
         <span>Markup de Preços</span>
@@ -93,6 +97,26 @@
           <i class="ph ph-user"></i>
           <span>Entrar</span>
         </button>
+
+        <!-- Seletor de Tenant (quando logado) -->
+        <div class="tenant-switcher" id="tenant-switcher" hidden>
+          <button class="tenant-switcher-btn" id="tenant-switcher-btn" onclick="toggleTenantDropdown()" aria-haspopup="true" aria-expanded="false">
+            <div class="tenant-switcher-icon" id="tenant-switcher-icon">
+              <i class="ph ph-buildings"></i>
+            </div>
+            <span class="tenant-switcher-name" id="tenant-switcher-name">Minha conta</span>
+            <i class="ph ph-caret-down tenant-switcher-caret"></i>
+          </button>
+          <div class="tenant-dropdown" id="tenant-dropdown">
+            <div class="tenant-dropdown-header">Alternar cliente</div>
+            <div class="tenant-dropdown-list" id="tenant-list"></div>
+            <div class="tenant-dropdown-footer">
+              <button class="tenant-add-btn" onclick="openTenantModal()">
+                <i class="ph ph-plus"></i> Adicionar cliente
+              </button>
+            </div>
+          </div>
+        </div>
 
         <!-- Área do usuário (quando logado) -->
         <div class="auth-user-area" id="auth-user-area" hidden>
@@ -828,6 +852,10 @@
             <span class="dock-info-lbl" style="margin-left: 2px;">Novo envio</span>
           </div>
           <div class="dock-divider"></div>
+          <button class="dock-btn dock-btn--secondary" onclick="disparoOpenImportModal()">
+            <i class="ph ph-upload-simple"></i>
+            <span>Importar CSV</span>
+          </button>
           <button class="dock-btn" onclick="disparoOpenModal()">
             <i class="ph ph-plus"></i>
             <span>Novo Contato</span>
@@ -873,6 +901,16 @@
                 <input type="text" class="disparo-search-input" id="disparo-si" placeholder="Buscar contato ou grupo..."
                   oninput="disparoFilter()">
               </div>
+            </div>
+
+            <div class="disparo-filter-row" id="disparo-filter-row">
+              <button class="disparo-fchip" id="fchip-today" onclick="disparoToggleFUFilter('today')">
+                <i class="ph ph-calendar-check"></i> Hoje
+              </button>
+              <button class="disparo-fchip" id="fchip-overdue" onclick="disparoToggleFUFilter('overdue')">
+                <i class="ph ph-warning"></i> Atrasados
+              </button>
+              <div id="disparo-tag-filter-wrap"></div>
             </div>
 
             <div class="disparo-clist" id="disparo-cl"></div>
@@ -959,47 +997,6 @@
 
           </div>
         </div><!-- /panel-disparo-templates -->
-
-        <!-- Modal adicionar contato -->
-        <div class="disparo-modal-overlay" id="disparo-ov" onclick="disparoCloseOverlay(event)">
-          <div class="disparo-modal">
-            <h3 class="disparo-modal-title">Adicionar Contato</h3>
-            <div class="form-field">
-              <label>Nome completo <span class="label-unit">obrigatório</span></label>
-              <input type="text" id="d-fn" placeholder="Ex.: João Silva" />
-            </div>
-            <div class="form-grid form-grid--2" style="margin-top:12px;">
-              <div class="form-field">
-                <label>Empresa</label>
-                <input type="text" id="d-fc" placeholder="Ex.: Silva LTDA" />
-              </div>
-              <div class="form-field">
-                <label>Segmento</label>
-                <input type="text" id="d-fseg" placeholder="Ex.: Construção" />
-              </div>
-              <div class="form-field">
-                <label>Grupo de Origem</label>
-                <input type="text" id="d-fg" placeholder="Ex.: IBBC" />
-              </div>
-              <div class="form-field">
-                <label>WhatsApp <span class="label-unit">com DDI, obrigatório</span></label>
-                <input type="text" id="d-fp" placeholder="5511999999999" />
-              </div>
-            </div>
-            <div class="disparo-modal-footer">
-              <button class="btn-reset" onclick="disparoCloseModal()">Cancelar</button>
-              <button class="btn-calc" style="margin-top:0;width:auto;padding:10px 20px;" onclick="disparoAddContact()">
-                <i class="ph ph-plus"></i> Adicionar
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Toast -->
-        <div class="disparo-toast" id="disparo-toast">
-          <i class="ph ph-check-circle"></i>
-          <span id="disparo-tm">ok</span>
-        </div>
 
       </div><!-- /tool-disparo -->
 
@@ -1119,6 +1116,206 @@
 
       </div><!-- /tool-crm -->
 
+      <!-- ══════════════════ TOOL: AGENDAMENTOS ══════════════════ -->
+      <div class="tool-view hidden" id="tool-sched">
+
+        <div class="tool-header">
+          <div class="tool-header-left">
+            <h1 class="tool-title">Agendamentos</h1>
+            <nav class="breadcrumb-mini">
+              <a href="#">Início</a>
+              <i class="ph ph-caret-right"></i>
+              <span class="breadcrumb-current-mini" id="sched-breadcrumb">Agenda</span>
+            </nav>
+          </div>
+          <div class="tool-header-right">
+            <nav class="pill-nav" role="tablist">
+              <button class="pill-item active" role="tab" aria-selected="true" onclick="switchSchedTab('agenda', this)">
+                Agenda
+              </button>
+              <button class="pill-item" role="tab" aria-selected="false" onclick="switchSchedTab('services', this)">
+                Serviços
+              </button>
+              <button class="pill-item" role="tab" aria-selected="false" onclick="switchSchedTab('config', this)">
+                Configurações
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        <!-- ── TAB: AGENDA ── -->
+        <div class="tab-panel sched-agenda-panel" id="sched-panel-agenda">
+
+          <div class="sched-agenda-wrap">
+
+            <!-- Coluna esquerda: calendário -->
+            <div class="sched-cal-col">
+              <div class="sched-cal-header">
+                <button class="sched-cal-nav" onclick="schedCalPrev()"><i class="ph ph-caret-left"></i></button>
+                <span class="sched-cal-month-label" id="sched-cal-month-label">—</span>
+                <button class="sched-cal-nav" onclick="schedCalNext()"><i class="ph ph-caret-right"></i></button>
+              </div>
+              <div class="sched-cal-weekdays">
+                <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+              </div>
+              <div class="sched-cal-grid" id="sched-cal-grid"></div>
+
+              <button class="sched-btn-add-booking" onclick="schedOpenBookingModal()">
+                <i class="ph ph-plus"></i> Novo Agendamento
+              </button>
+            </div>
+
+            <!-- Coluna direita: painel do dia -->
+            <div class="sched-day-col">
+              <div class="sched-day-header">
+                <span class="sched-day-title" id="sched-day-title">Selecione um dia</span>
+                <button class="sched-day-block-btn" id="sched-day-block-btn" onclick="schedToggleDayBlock()" hidden>
+                  <i class="ph ph-lock-simple"></i> <span id="sched-day-block-label">Bloquear dia</span>
+                </button>
+              </div>
+              <div id="sched-day-bookings">
+                <div class="sched-day-empty">
+                  <i class="ph ph-calendar-blank"></i>
+                  <p>Selecione um dia no calendário para ver os agendamentos.</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ── TAB: SERVIÇOS ── -->
+        <div class="tab-panel hidden" id="sched-panel-services">
+          <div class="tool-body">
+
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-plus-circle"></i> <span id="sched-svc-form-title">Novo Serviço</span></h2>
+
+              <div class="form-grid form-grid--2">
+                <div class="form-field">
+                  <label for="sched-svc-name">Nome do Serviço</label>
+                  <input type="text" id="sched-svc-name" placeholder="Ex: Corte Feminino" />
+                </div>
+                <div class="form-field">
+                  <label for="sched-svc-category">Categoria <span class="label-unit">opcional</span></label>
+                  <input type="text" id="sched-svc-category" placeholder="Ex: Cabelo, Estética..." />
+                </div>
+              </div>
+              <div class="form-grid form-grid--2">
+                <div class="form-field">
+                  <label for="sched-svc-price">Preço <span class="label-unit">(R$)</span></label>
+                  <input type="number" id="sched-svc-price" placeholder="0,00" min="0" step="0.01" />
+                </div>
+                <div class="form-field">
+                  <label for="sched-svc-duration">Duração <span class="label-unit">(minutos)</span></label>
+                  <input type="number" id="sched-svc-duration" placeholder="60" min="5" step="5" />
+                </div>
+              </div>
+
+              <!-- Campos do site público -->
+              <div class="sched-svc-site-section">
+                <div class="sched-svc-site-label"><i class="ph ph-globe"></i> Exibição no site público</div>
+                <div class="form-grid form-grid--2">
+                  <div class="form-field">
+                    <label for="sched-svc-image">URL da imagem principal</label>
+                    <div class="sched-svc-img-row">
+                      <input type="url" id="sched-svc-image" placeholder="https://..." oninput="schedSvcPreviewImg(this, 'sched-svc-img-preview')" />
+                      <div class="sched-svc-img-thumb" id="sched-svc-img-preview"><i class="ph ph-image"></i></div>
+                    </div>
+                  </div>
+                  <div class="form-field" id="sched-svc-image2-wrap">
+                    <label for="sched-svc-image2">URL da imagem 2 <span class="label-unit">pacotes</span></label>
+                    <div class="sched-svc-img-row">
+                      <input type="url" id="sched-svc-image2" placeholder="https://..." oninput="schedSvcPreviewImg(this, 'sched-svc-img-preview2')" />
+                      <div class="sched-svc-img-thumb" id="sched-svc-img-preview2"><i class="ph ph-image"></i></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-grid form-grid--2">
+                  <div class="form-field">
+                    <label for="sched-svc-badge">Badge <span class="label-unit">ex: Mais popular</span></label>
+                    <input type="text" id="sched-svc-badge" placeholder="Deixe vazio para não exibir" />
+                  </div>
+                  <div class="form-field form-field--center">
+                    <label>Tipo de serviço</label>
+                    <label class="toggle-row" style="margin-top:6px;">
+                      <div class="toggle-switch-ui" id="sched-svc-pkg-toggle" role="switch" aria-checked="false" tabindex="0"
+                        onclick="schedSvcTogglePackage()" onkeydown="if(event.key==='Enter'||event.key===' ')schedSvcTogglePackage()">
+                        <span class="toggle-thumb-ui"></span>
+                      </div>
+                      <span class="toggle-label-text" id="sched-svc-pkg-label">Serviço avulso</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sched-svc-actions">
+                <button class="btn-reset" id="sched-svc-cancel-btn" onclick="schedSvcCancelEdit()" hidden>Cancelar</button>
+                <button class="btn-calc" id="sched-svc-save-btn" onclick="schedSvcSave()">
+                  <i class="ph ph-floppy-disk"></i> Salvar Serviço
+                </button>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-list-bullets"></i> Serviços cadastrados
+                <span class="sched-svc-count" id="sched-svc-count"></span>
+              </h2>
+              <div id="sched-svc-list">
+                <div class="sched-svc-empty">Nenhum serviço cadastrado ainda.</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ── TAB: CONFIGURAÇÕES ── -->
+        <div class="tab-panel hidden" id="sched-panel-config">
+          <div class="tool-body">
+
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-calendar-check"></i> Dias de Atendimento</h2>
+              <p class="tool-desc" style="margin-bottom:14px;">Selecione os dias da semana em que você atende.</p>
+              <div class="sched-workdays-row" id="sched-workdays-row">
+                <button class="sched-day-pill" data-day="0" onclick="schedToggleWorkday(0)">Dom</button>
+                <button class="sched-day-pill" data-day="1" onclick="schedToggleWorkday(1)">Seg</button>
+                <button class="sched-day-pill" data-day="2" onclick="schedToggleWorkday(2)">Ter</button>
+                <button class="sched-day-pill" data-day="3" onclick="schedToggleWorkday(3)">Qua</button>
+                <button class="sched-day-pill" data-day="4" onclick="schedToggleWorkday(4)">Qui</button>
+                <button class="sched-day-pill" data-day="5" onclick="schedToggleWorkday(5)">Sex</button>
+                <button class="sched-day-pill" data-day="6" onclick="schedToggleWorkday(6)">Sáb</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-clock"></i> Horários Padrão</h2>
+              <p class="tool-desc" style="margin-bottom:14px;">Defina os horários disponíveis para agendamento. Um por linha, no formato HH:MM.</p>
+              <div class="form-field">
+                <label for="sched-times-ta">Horários disponíveis</label>
+                <textarea id="sched-times-ta" class="sched-times-ta" rows="6"
+                  placeholder="08:00&#10;09:00&#10;10:00&#10;11:00&#10;14:00&#10;15:00&#10;16:00"></textarea>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-whatsapp-logo"></i> WhatsApp para Confirmações</h2>
+              <p class="tool-desc" style="margin-bottom:14px;">Número que receberá notificações quando novos agendamentos forem feitos pelo link público.</p>
+              <div class="form-field">
+                <label for="sched-whatsapp">Número com DDI</label>
+                <input type="text" id="sched-whatsapp" placeholder="5511999990001" />
+              </div>
+            </div>
+
+            <button class="btn-calc" style="width:auto;padding:10px 24px;" onclick="schedSaveConfig()">
+              <i class="ph ph-floppy-disk"></i> Salvar Configurações
+            </button>
+            <div class="sched-cfg-status" id="sched-cfg-status"></div>
+
+          </div>
+        </div>
+
+      </div><!-- /tool-sched -->
+
       <!-- ══════════════════ PLACEHOLDER: EM BREVE ══════════════════ -->
       <div class="tool-view hidden" id="tool-coming-soon">
         <div class="tool-header">
@@ -1142,6 +1339,47 @@
       </div>
 
     </main>
+
+    <!-- ══ TOAST GLOBAL ══ -->
+    <div class="disparo-toast" id="disparo-toast">
+      <i class="ph ph-check-circle"></i>
+      <span id="disparo-tm">ok</span>
+    </div>
+
+    <!-- ══ MODAL GLOBAL: Adicionar / Editar contato (Disparo + CRM) ══ -->
+    <div class="disparo-modal-overlay" id="disparo-ov" onclick="disparoCloseOverlay(event)">
+      <div class="disparo-modal">
+        <h3 class="disparo-modal-title" id="disparo-modal-title">Adicionar Contato</h3>
+        <div class="form-field">
+          <label>Nome completo <span class="label-unit">obrigatório</span></label>
+          <input type="text" id="d-fn" placeholder="Ex.: João Silva" />
+        </div>
+        <div class="form-grid form-grid--2" style="margin-top:12px;">
+          <div class="form-field">
+            <label>Empresa</label>
+            <input type="text" id="d-fc" placeholder="Ex.: Silva LTDA" />
+          </div>
+          <div class="form-field">
+            <label>Segmento</label>
+            <input type="text" id="d-fseg" placeholder="Ex.: Construção" />
+          </div>
+          <div class="form-field">
+            <label>Grupo de Origem</label>
+            <input type="text" id="d-fg" placeholder="Ex.: IBBC" />
+          </div>
+          <div class="form-field">
+            <label>WhatsApp <span class="label-unit">com DDI, obrigatório</span></label>
+            <input type="text" id="d-fp" placeholder="5511999999999" />
+          </div>
+        </div>
+        <div class="disparo-modal-footer">
+          <button class="btn-reset" onclick="disparoCloseModal()">Cancelar</button>
+          <button class="btn-calc" id="disparo-modal-confirm-btn" style="margin-top:0;width:auto;padding:10px 20px;" onclick="disparoAddContact()">
+            <i class="ph ph-plus"></i> Adicionar
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ═══════════════════════ AUTH MODAL ═══════════════════════ -->
@@ -1266,6 +1504,131 @@
         Assine o Orbit para manter para sempre.
       </p>
 
+    </div>
+  </div>
+
+  <!-- ══ MODAL GLOBAL: Importar CSV ══ -->
+  <div class="disparo-modal-overlay" id="disparo-import-ov" onclick="disparoCloseImportOverlay(event)">
+    <div class="disparo-modal disparo-modal--wide">
+      <h3 class="disparo-modal-title"><i class="ph ph-upload-simple"></i> Importar Contatos via CSV</h3>
+
+      <div class="import-format-hint">
+        <strong>Formato esperado</strong> — cada linha é um contato, colunas separadas por vírgula, ponto-e-vírgula ou tabulação:<br>
+        <code>Nome, WhatsApp (DDI+número), Empresa, Segmento, Grupo</code><br>
+        <span>Você pode colar direto de uma planilha do Excel ou Google Sheets. Primeira linha pode ser cabeçalho (será ignorada automaticamente se não tiver número no campo WhatsApp).</span>
+      </div>
+
+      <div class="form-field" style="margin-top:14px;">
+        <label>Cole o conteúdo aqui</label>
+        <textarea id="disparo-import-ta" class="import-ta" rows="6"
+          placeholder="João Silva, 5511999990001, Silva LTDA, Construção, IBBC&#10;Maria Costa, 5511999990002, Costa ME, Limpeza, Evolua+"></textarea>
+      </div>
+
+      <button class="btn-calc" style="margin-top:8px;width:auto;padding:9px 18px;" onclick="disparoParseImport()">
+        <i class="ph ph-magnifying-glass"></i> Pré-visualizar
+      </button>
+
+      <div id="disparo-import-preview" style="margin-top:14px;"></div>
+
+      <div class="disparo-modal-footer" style="margin-top:16px;">
+        <button class="btn-reset" onclick="disparoCloseImportModal()">Cancelar</button>
+        <button class="btn-calc" id="disparo-import-confirm-btn" hidden
+          style="margin-top:0;width:auto;padding:10px 20px;" onclick="disparoConfirmImport()">
+          <i class="ph ph-check"></i> Importar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MODAL GLOBAL: Gerenciar Tenants ══ -->
+  <div class="tenant-modal-overlay" id="tenant-modal-ov" onclick="closeTenantModalOverlay(event)">
+    <div class="tenant-modal">
+      <div class="tenant-modal-header">
+        <h3><i class="ph ph-buildings"></i> Gerenciar Clientes</h3>
+        <button class="sched-booking-close" onclick="closeTenantModal()"><i class="ph ph-x"></i></button>
+      </div>
+      <div class="tenant-modal-body">
+        <p class="tenant-modal-desc">Adicione os UIDs dos seus clientes para navegar entre as contas deles diretamente pelo Orbit Tools.</p>
+
+        <div class="tenant-form">
+          <div class="form-field">
+            <label for="tenant-input-name">Nome do cliente</label>
+            <input type="text" id="tenant-input-name" placeholder="Ex: Kamilly Beauty Art" />
+          </div>
+          <div class="form-field">
+            <label for="tenant-input-uid">UID Firebase do cliente</label>
+            <input type="text" id="tenant-input-uid" placeholder="Ex: UNFTpC8GjHW..." />
+          </div>
+          <button class="btn-calc" style="width:auto;padding:9px 18px;margin-top:4px;" onclick="tenantAddNew()">
+            <i class="ph ph-plus"></i> Adicionar
+          </button>
+          <div class="auth-error" id="tenant-form-error" hidden></div>
+        </div>
+
+        <div class="tenant-managed-list" id="tenant-managed-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MODAL GLOBAL: Agendamento ══ -->
+  <div class="sched-booking-overlay" id="sched-booking-ov" onclick="schedCloseBookingOverlay(event)">
+    <div class="sched-booking-modal">
+      <div class="sched-booking-modal-header">
+        <h3 id="sched-booking-modal-title"><i class="ph ph-calendar-plus"></i> Novo Agendamento</h3>
+        <button class="sched-booking-close" onclick="schedCloseBookingModal()"><i class="ph ph-x"></i></button>
+      </div>
+
+      <div class="sched-booking-body">
+        <div class="form-grid form-grid--2">
+          <div class="form-field">
+            <label for="sched-bk-name">Nome do cliente</label>
+            <input type="text" id="sched-bk-name" placeholder="Ex: Maria Silva" />
+          </div>
+          <div class="form-field">
+            <label for="sched-bk-phone">WhatsApp do cliente</label>
+            <input type="text" id="sched-bk-phone" placeholder="5511999990001" />
+          </div>
+        </div>
+        <div class="form-grid form-grid--2">
+          <div class="form-field">
+            <label for="sched-bk-date">Data</label>
+            <input type="date" id="sched-bk-date" />
+          </div>
+          <div class="form-field">
+            <label for="sched-bk-time">Horário</label>
+            <select id="sched-bk-time">
+              <option value="">Selecione...</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Serviços</label>
+          <div class="sched-bk-services-list" id="sched-bk-services-list">
+            <span class="sched-bk-no-svc">Nenhum serviço cadastrado. Acesse a aba Serviços para adicionar.</span>
+          </div>
+        </div>
+        <div class="form-field">
+          <label for="sched-bk-notes">Observações <span class="label-unit">opcional</span></label>
+          <textarea id="sched-bk-notes" rows="2" placeholder="Informações adicionais..."></textarea>
+        </div>
+        <div class="form-field">
+          <label for="sched-bk-status">Status</label>
+          <select id="sched-bk-status">
+            <option value="pending">Pendente</option>
+            <option value="confirmed">Confirmado</option>
+            <option value="done">Concluído</option>
+            <option value="cancelled">Cancelado</option>
+          </select>
+        </div>
+        <div class="auth-error" id="sched-bk-error" hidden></div>
+      </div>
+
+      <div class="sched-booking-modal-footer">
+        <button class="btn-reset" onclick="schedCloseBookingModal()">Cancelar</button>
+        <button class="btn-calc" id="sched-bk-save-btn" onclick="schedSaveBooking()" style="margin-top:0;width:auto;padding:10px 20px;">
+          <i class="ph ph-floppy-disk"></i> Salvar
+        </button>
+      </div>
     </div>
   </div>
 
