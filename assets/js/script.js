@@ -42,6 +42,9 @@ function loadTool(toolId, linkEl) {
     schedRenderCalendar();
     schedRenderServices();
   }
+  if (toolId === 'admin') {
+    if (typeof admLoadUsers === 'function') admLoadUsers();
+  }
 
   if (window.innerWidth <= 768) closeSidebar();
 }
@@ -2237,6 +2240,13 @@ let schedServices = [];
 let schedBookings = [];
 let schedDays     = {};   /* { 'YYYY-MM-DD': { blocked: bool, times: [], reason: '' } } */
 
+/* Retorna o UID correto: tenant ativo ou conta própria */
+function _schedUid() {
+  return (typeof activeTenantUid !== 'undefined' && activeTenantUid)
+    ? activeTenantUid
+    : (currentUser ? currentUser.uid : null);
+}
+
 let _schedCalYear  = new Date().getFullYear();
 let _schedCalMonth = new Date().getMonth(); /* 0-indexed */
 let _schedSelDate  = null; /* 'YYYY-MM-DD' */
@@ -2424,13 +2434,14 @@ function schedRenderDayPanel(dateStr) {
 
 /* ─── Toggle day block ────────────────────────────────────────── */
 function schedToggleDayBlock() {
-  if (!_schedSelDate || !currentUser) return;
+  const uid = _schedUid();
+  if (!_schedSelDate || !uid) return;
   const dayData   = schedDays[_schedSelDate] || {};
   const newBlocked = !dayData.blocked;
 
   schedDays[_schedSelDate] = { ...dayData, blocked: newBlocked };
 
-  const ref = db.collection('users').doc(currentUser.uid)
+  const ref = db.collection('users').doc(uid)
                 .collection('sched_days').doc(_schedSelDate);
   ref.set({ blocked: newBlocked, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
     .then(() => {
@@ -2552,7 +2563,7 @@ function schedSaveBooking() {
     .map(s => s.name);
 
   const payload = { clientName, phone, date, time, notes, status, services, source: 'admin', updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
-  const col = db.collection('users').doc(currentUser.uid).collection('sched_bookings');
+  const col = db.collection('users').doc(_schedUid()).collection('sched_bookings');
 
   const btn = document.getElementById('sched-bk-save-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph ph-circle-notch auth-spin"></i> Salvando...'; }
@@ -2581,9 +2592,10 @@ function schedSaveBooking() {
 }
 
 function schedDeleteBooking(id) {
-  if (!currentUser) return;
+  const uid = _schedUid();
+  if (!uid) return;
   if (!confirm('Excluir este agendamento?')) return;
-  db.collection('users').doc(currentUser.uid).collection('sched_bookings').doc(id).delete()
+  db.collection('users').doc(uid).collection('sched_bookings').doc(id).delete()
     .then(() => {
       schedBookings = schedBookings.filter(b => b.id !== id);
       schedRenderCalendar();
@@ -2654,20 +2666,15 @@ function schedSvcTogglePackage() {
 
 function schedSvcSave() {
   if (!currentUser) return;
-  const name      = document.getElementById('sched-svc-name').value.trim();
-  const category  = document.getElementById('sched-svc-category').value.trim();
-  const price     = parseFloat(document.getElementById('sched-svc-price').value) || 0;
-  const duration  = parseInt(document.getElementById('sched-svc-duration').value) || 0;
-  const imageUrl  = document.getElementById('sched-svc-image').value.trim();
-  const imageUrl2 = document.getElementById('sched-svc-image2').value.trim();
-  const badge     = document.getElementById('sched-svc-badge').value.trim();
-  const isPackage = _schedSvcIsPackage;
+  const name     = document.getElementById('sched-svc-name').value.trim();
+  const category = document.getElementById('sched-svc-category').value.trim();
+  const price    = parseFloat(document.getElementById('sched-svc-price').value) || 0;
+  const duration = parseInt(document.getElementById('sched-svc-duration').value) || 0;
 
   if (!name) return;
 
-  const payload = { name, category, price, duration, imageUrl, imageUrl2, badge, isPackage,
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
-  const col = db.collection('users').doc(currentUser.uid).collection('sched_services');
+  const payload = { name, category, price, duration, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+  const col = db.collection('users').doc(_schedUid()).collection('sched_services');
 
   const btn = document.getElementById('sched-svc-save-btn');
   if (btn) btn.disabled = true;
@@ -2694,49 +2701,23 @@ function schedSvcEdit(id) {
   const s = schedServices.find(x => x.id === id);
   if (!s) return;
   _schedSvcEditId = id;
-  document.getElementById('sched-svc-name').value      = s.name     || '';
-  document.getElementById('sched-svc-category').value  = s.category || '';
-  document.getElementById('sched-svc-price').value     = s.price    || '';
-  document.getElementById('sched-svc-duration').value  = s.duration || '';
-  document.getElementById('sched-svc-image').value     = s.imageUrl  || '';
-  document.getElementById('sched-svc-image2').value    = s.imageUrl2 || '';
-  document.getElementById('sched-svc-badge').value     = s.badge     || '';
-  /* Preview thumbnails */
-  const img1 = document.getElementById('sched-svc-img-preview');
-  const img2 = document.getElementById('sched-svc-img-preview2');
-  if (img1) img1.innerHTML = s.imageUrl  ? `<img src="${_esc(s.imageUrl)}"  alt="" />` : '<i class="ph ph-image"></i>';
-  if (img2) img2.innerHTML = s.imageUrl2 ? `<img src="${_esc(s.imageUrl2)}" alt="" />` : '<i class="ph ph-image"></i>';
-  /* Toggle pacote */
-  _schedSvcIsPackage = !!s.isPackage;
-  const toggle = document.getElementById('sched-svc-pkg-toggle');
-  const pkgLbl = document.getElementById('sched-svc-pkg-label');
-  if (toggle) { toggle.setAttribute('aria-checked', String(_schedSvcIsPackage)); toggle.classList.toggle('active', _schedSvcIsPackage); }
-  if (pkgLbl)  pkgLbl.textContent = _schedSvcIsPackage ? 'Pacote' : 'Serviço avulso';
-
+  document.getElementById('sched-svc-name').value     = s.name     || '';
+  document.getElementById('sched-svc-category').value = s.category || '';
+  document.getElementById('sched-svc-price').value    = s.price    || '';
+  document.getElementById('sched-svc-duration').value = s.duration || '';
   const titleEl = document.getElementById('sched-svc-form-title');
   if (titleEl) titleEl.textContent = 'Editar Serviço';
   const cancelBtn = document.getElementById('sched-svc-cancel-btn');
   if (cancelBtn) cancelBtn.hidden = false;
-  /* Scroll to form */
   document.getElementById('sched-svc-name').scrollIntoView({ behavior: 'smooth', block: 'center' });
   document.getElementById('sched-svc-name').focus();
 }
 
 function schedSvcCancelEdit() {
   _schedSvcEditId = null;
-  _schedSvcIsPackage = false;
-  ['sched-svc-name','sched-svc-category','sched-svc-price','sched-svc-duration',
-   'sched-svc-image','sched-svc-image2','sched-svc-badge'].forEach(id => {
+  ['sched-svc-name','sched-svc-category','sched-svc-price','sched-svc-duration'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  const img1 = document.getElementById('sched-svc-img-preview');
-  const img2 = document.getElementById('sched-svc-img-preview2');
-  if (img1) img1.innerHTML = '<i class="ph ph-image"></i>';
-  if (img2) img2.innerHTML = '<i class="ph ph-image"></i>';
-  const toggle = document.getElementById('sched-svc-pkg-toggle');
-  const pkgLbl = document.getElementById('sched-svc-pkg-label');
-  if (toggle) { toggle.setAttribute('aria-checked', 'false'); toggle.classList.remove('active'); }
-  if (pkgLbl)  pkgLbl.textContent = 'Serviço avulso';
   const titleEl = document.getElementById('sched-svc-form-title');
   if (titleEl) titleEl.textContent = 'Novo Serviço';
   const cancelBtn = document.getElementById('sched-svc-cancel-btn');
@@ -2744,9 +2725,10 @@ function schedSvcCancelEdit() {
 }
 
 function schedSvcDelete(id) {
-  if (!currentUser) return;
+  const uid = _schedUid();
+  if (!uid) return;
   if (!confirm('Excluir este serviço?')) return;
-  db.collection('users').doc(currentUser.uid).collection('sched_services').doc(id).delete()
+  db.collection('users').doc(uid).collection('sched_services').doc(id).delete()
     .then(() => {
       schedServices = schedServices.filter(s => s.id !== id);
       schedRenderServices();
@@ -2781,7 +2763,7 @@ function schedSaveConfig() {
 
   const statusEl = document.getElementById('sched-cfg-status');
 
-  db.collection('users').doc(currentUser.uid)
+  db.collection('users').doc(_schedUid())
     .collection('sched_config').doc('main')
     .set({ ...schedConfig, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
     .then(() => {
@@ -2824,11 +2806,12 @@ function loadSchedDataFromFirestore(uid) {
     });
 
   /* Services */
-  db.collection('users').doc(uid).collection('sched_services').orderBy('createdAt').get()
+  db.collection('users').doc(uid).collection('sched_services').get()
     .then(snap => {
       schedServices = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       schedRenderServices();
-    });
+    })
+    .catch(err => console.error('[Orbit] sched_services load falhou:', err));
 
   /* Bookings — last 90 days + future */
   const since = new Date();
@@ -2836,11 +2819,15 @@ function loadSchedDataFromFirestore(uid) {
   const sinceStr = _schedDateStr(since);
   db.collection('users').doc(uid).collection('sched_bookings')
     .where('date', '>=', sinceStr)
-    .orderBy('date').orderBy('time').get()
+    .orderBy('date')
+    .get()
     .then(snap => {
-      schedBookings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      schedBookings = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
       schedRenderCalendar();
-    });
+    })
+    .catch(err => console.error('[Orbit] sched_bookings load falhou:', err));
 
   /* Day overrides — current and future month */
   const thisMonth = `${_schedCalYear}-${String(_schedCalMonth + 1).padStart(2,'0')}`;
@@ -3067,8 +3054,10 @@ function tenantRemove(idx) {
 
 function _saveManagedTenants(cb) {
   if (!currentUser) return;
+  /* managedTenantUids é um array simples de strings — usado nas Firestore Rules */
+  const managedTenantUids = managedTenants.map(t => t.uid);
   db.collection('users').doc(currentUser.uid)
-    .update({ managedTenants })
+    .update({ managedTenants, managedTenantUids })
     .then(() => { if (cb) cb(); })
-    .catch(() => { if (cb) cb(); }); /* falha silenciosa — UI já atualizou */
+    .catch(() => { if (cb) cb(); });
 }

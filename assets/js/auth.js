@@ -261,6 +261,14 @@ function _checkOnboarding(user, openModalIfNeeded) {
       _userPlan = data.plan || 'free';
       if (typeof _disparoUpdateLimitBar === 'function') _disparoUpdateLimitBar();
 
+      /* Exibe Agendamentos só para contas com site ativo */
+      const navSched = document.getElementById('nav-item-sched');
+      if (navSched) navSched.hidden = !data.hasSite;
+
+      /* Exibe Admin só para administradores */
+      const navAdmin = document.getElementById('nav-item-admin');
+      if (navAdmin) navAdmin.hidden = !data.isAdmin;
+
       if (data.onboardingCompleted) return;
 
       // Pré-preenche nome se disponível
@@ -287,6 +295,11 @@ function authLogout() {
     if (typeof cltHistory        !== 'undefined') { cltHistory        = []; typeof updateCltBadge    === 'function' && updateCltBadge();      typeof renderHistoryCLT === 'function' && renderHistoryCLT(); }
     if (typeof disparoContacts   !== 'undefined') { disparoContacts   = []; typeof disparoUpdateStats === 'function' && disparoUpdateStats(); typeof disparoFilter    === 'function' && disparoFilter();    }
     if (typeof _disparoUpdateLimitBar === 'function') _disparoUpdateLimitBar();
+    /* Oculta Agendamentos e Admin */
+    const navSched  = document.getElementById('nav-item-sched');
+    if (navSched) navSched.hidden = true;
+    const navAdmin = document.getElementById('nav-item-admin');
+    if (navAdmin) navAdmin.hidden = true;
     /* Reset tenant switcher */
     if (typeof managedTenants !== 'undefined') { managedTenants = []; activeTenantUid = null; activeTenantName = null; }
     const tenantSwitcher = document.getElementById('tenant-switcher');

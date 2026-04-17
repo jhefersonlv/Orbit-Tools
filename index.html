@@ -33,39 +33,37 @@
     </div>
 
     <nav class="sidebar-nav">
-      <a href="#" class="nav-item active" data-tool="km-calc" onclick="loadTool('km-calc', this)">
-        <i class="ph ph-car"></i>
-        <span>Calculadora de KM</span>
+      <a href="#" class="nav-item active" data-tool="crm" onclick="loadTool('crm', this)">
+        <i class="ph ph-kanban"></i>
+        <span>CRM & Leads</span>
       </a>
-      <a href="#" class="nav-item" data-tool="clt-pj" onclick="loadTool('clt-pj', this)">
-        <i class="ph ph-scales"></i>
-        <span>Custo CLT x PJ</span>
+      <a href="#" class="nav-item" data-tool="sched" id="nav-item-sched" onclick="loadTool('sched', this)" hidden>
+        <i class="ph ph-calendar-blank"></i>
+        <span>Agendamentos</span>
       </a>
       <a href="#" class="nav-item" data-tool="disparo" onclick="loadTool('disparo', this)">
         <i class="ph ph-whatsapp-logo"></i>
         <span>Disparo WhatsApp</span>
       </a>
-      <a href="#" class="nav-item" data-tool="crm" onclick="loadTool('crm', this)">
-        <i class="ph ph-kanban"></i>
-        <span>CRM & Leads</span>
+      <a href="#" class="nav-item" data-tool="clt-pj" onclick="loadTool('clt-pj', this)">
+        <i class="ph ph-scales"></i>
+        <span>Custo CLT x PJ</span>
       </a>
-      <a href="#" class="nav-item" data-tool="sched" onclick="loadTool('sched', this)">
-        <i class="ph ph-calendar-blank"></i>
-        <span>Agendamentos</span>
+      <a href="#" class="nav-item" data-tool="km-calc" onclick="loadTool('km-calc', this)">
+        <i class="ph ph-car"></i>
+        <span>Calculadora de KM</span>
       </a>
-      <div class="nav-item nav-item--soon">
-        <i class="ph ph-tag"></i>
-        <span>Markup de Preços</span>
-        <span class="nav-badge">Em breve</span>
-      </div>
-      <div class="nav-item nav-item--soon">
-        <i class="ph ph-chart-line-up"></i>
-        <span>Ponto de Equilíbrio</span>
-        <span class="nav-badge">Em breve</span>
-      </div>
+
+
+
     </nav>
 
     <div class="sidebar-footer">
+      <a href="#" class="nav-item nav-item--admin" data-tool="admin" id="nav-item-admin"
+        onclick="loadTool('admin', this)" hidden>
+        <i class="ph ph-shield-check"></i>
+        <span>Admin</span>
+      </a>
       <div class="sidebar-footer-brand">
         <i class="ph ph-circle-dashed"></i>
         <span>Orbit · WordVirtua</span>
@@ -100,7 +98,8 @@
 
         <!-- Seletor de Tenant (quando logado) -->
         <div class="tenant-switcher" id="tenant-switcher" hidden>
-          <button class="tenant-switcher-btn" id="tenant-switcher-btn" onclick="toggleTenantDropdown()" aria-haspopup="true" aria-expanded="false">
+          <button class="tenant-switcher-btn" id="tenant-switcher-btn" onclick="toggleTenantDropdown()"
+            aria-haspopup="true" aria-expanded="false">
             <div class="tenant-switcher-icon" id="tenant-switcher-icon">
               <i class="ph ph-buildings"></i>
             </div>
@@ -138,7 +137,7 @@
     <main class="content" id="content-area">
 
       <!-- ══════════════════ TOOL: CALCULADORA DE KM ══════════════════ -->
-      <div class="tool-view" id="tool-km-calc">
+      <div class="tool-view hidden" id="tool-km-calc">
 
         <!-- Cabeçalho fixo da ferramenta -->
         <div class="tool-header">
@@ -833,8 +832,7 @@
                 onclick="switchDisparoTab('central', this)">
                 Central de Disparo
               </button>
-              <button class="pill-item" role="tab" aria-selected="false"
-                onclick="switchDisparoTab('templates', this)">
+              <button class="pill-item" role="tab" aria-selected="false" onclick="switchDisparoTab('templates', this)">
                 Templates
                 <span class="pill-badge" id="disparo-tmpl-badge" hidden></span>
               </button>
@@ -845,98 +843,99 @@
         <!-- ── PAINEL: CENTRAL DE DISPARO ── -->
         <div id="panel-disparo-central">
 
-        <!-- Botão flutuante (Dock) do Disparo -->
-        <div class="floating-dock-wrapper">
-          <div class="dock-info">
-            <i class="ph ph-whatsapp-logo" style="color: var(--c-green);"></i>
-            <span class="dock-info-lbl" style="margin-left: 2px;">Novo envio</span>
-          </div>
-          <div class="dock-divider"></div>
-          <button class="dock-btn dock-btn--secondary" onclick="disparoOpenImportModal()">
-            <i class="ph ph-upload-simple"></i>
-            <span>Importar CSV</span>
-          </button>
-          <button class="dock-btn" onclick="disparoOpenModal()">
-            <i class="ph ph-plus"></i>
-            <span>Novo Contato</span>
-          </button>
-        </div>
-
-        <p class="tool-desc">Gerencie seus contatos e envie mensagens personalizadas no WhatsApp com rapidez e
-          eficiência.</p>
-
-        <div class="tool-body tool-body--disparo">
-
-          <!-- COLUNA ESQUERDA: ESTATÍSTICA E CONTATOS -->
-          <div class="card card--disparo-left">
-            <h2 class="card-title"><i class="ph ph-users"></i> Contatos</h2>
-
-            <div class="disparo-sidebar-top">
-              <div class="disparo-eyebrow">Visão geral</div>
-              <div class="disparo-stats-grid">
-                <div class="disparo-stat">
-                  <span class="disparo-stat-val disparo-stat-val--mid" id="dst">0</span>
-                  <span class="disparo-stat-lbl">Total</span>
-                </div>
-                <div class="disparo-stat">
-                  <span class="disparo-stat-val disparo-stat-val--warn" id="dsp">0</span>
-                  <span class="disparo-stat-lbl">Pendentes</span>
-                </div>
-                <div class="disparo-stat">
-                  <span class="disparo-stat-val disparo-stat-val--green" id="dss">0</span>
-                  <span class="disparo-stat-lbl">Enviados</span>
-                </div>
-              </div>
-              <div class="disparo-prog-row">
-                <div class="disparo-prog-bg">
-                  <div class="disparo-prog-fill" id="disparo-pf" style="width:0%"></div>
-                </div>
-                <span class="disparo-prog-lbl" id="disparo-pl">0 / 0</span>
-              </div>
+          <!-- Botão flutuante (Dock) do Disparo -->
+          <div class="floating-dock-wrapper">
+            <div class="dock-info">
+              <i class="ph ph-whatsapp-logo" style="color: var(--c-green);"></i>
+              <span class="dock-info-lbl" style="margin-left: 2px;">Novo envio</span>
             </div>
-
-            <div class="disparo-search-wrap">
-              <div class="input-icon-wrap">
-                <i class="ph ph-magnifying-glass"></i>
-                <input type="text" class="disparo-search-input" id="disparo-si" placeholder="Buscar contato ou grupo..."
-                  oninput="disparoFilter()">
-              </div>
-            </div>
-
-            <div class="disparo-filter-row" id="disparo-filter-row">
-              <button class="disparo-fchip" id="fchip-today" onclick="disparoToggleFUFilter('today')">
-                <i class="ph ph-calendar-check"></i> Hoje
-              </button>
-              <button class="disparo-fchip" id="fchip-overdue" onclick="disparoToggleFUFilter('overdue')">
-                <i class="ph ph-warning"></i> Atrasados
-              </button>
-              <div id="disparo-tag-filter-wrap"></div>
-            </div>
-
-            <div class="disparo-clist" id="disparo-cl"></div>
-
-            <!-- Barra de limite (plano free) -->
-            <div class="disparo-limit-wrap" id="disparo-limit-wrap">
-              <div class="disparo-limit-track">
-                <div class="disparo-limit-fill" id="disparo-limit-bar" style="width:0%"></div>
-              </div>
-              <span class="disparo-limit-label" id="disparo-limit-label">0 / 100 contatos</span>
-            </div>
+            <div class="dock-divider"></div>
+            <button class="dock-btn dock-btn--secondary" onclick="disparoOpenImportModal()">
+              <i class="ph ph-upload-simple"></i>
+              <span>Importar CSV</span>
+            </button>
+            <button class="dock-btn" onclick="disparoOpenModal()">
+              <i class="ph ph-plus"></i>
+              <span>Novo Contato</span>
+            </button>
           </div>
 
-          <!-- COLUNA DIREITA: PAINEL PRINCIPAL -->
-          <div class="card card--disparo-main">
-            <div class="disparo-main" id="disparo-main">
-              <div class="disparo-empty">
-                <div class="disparo-empty-icon"><i class="ph ph-chat-circle-dots"></i></div>
-                <div class="disparo-empty-t">Nenhum contato selecionado</div>
-                <div class="disparo-empty-s">Selecione um contato para personalizar e disparar a mensagem pelo WhatsApp
+          <p class="tool-desc">Gerencie seus contatos e envie mensagens personalizadas no WhatsApp com rapidez e
+            eficiência.</p>
+
+          <div class="tool-body tool-body--disparo">
+
+            <!-- COLUNA ESQUERDA: ESTATÍSTICA E CONTATOS -->
+            <div class="card card--disparo-left">
+              <h2 class="card-title"><i class="ph ph-users"></i> Contatos</h2>
+
+              <div class="disparo-sidebar-top">
+                <div class="disparo-eyebrow">Visão geral</div>
+                <div class="disparo-stats-grid">
+                  <div class="disparo-stat">
+                    <span class="disparo-stat-val disparo-stat-val--mid" id="dst">0</span>
+                    <span class="disparo-stat-lbl">Total</span>
+                  </div>
+                  <div class="disparo-stat">
+                    <span class="disparo-stat-val disparo-stat-val--warn" id="dsp">0</span>
+                    <span class="disparo-stat-lbl">Pendentes</span>
+                  </div>
+                  <div class="disparo-stat">
+                    <span class="disparo-stat-val disparo-stat-val--green" id="dss">0</span>
+                    <span class="disparo-stat-lbl">Enviados</span>
+                  </div>
+                </div>
+                <div class="disparo-prog-row">
+                  <div class="disparo-prog-bg">
+                    <div class="disparo-prog-fill" id="disparo-pf" style="width:0%"></div>
+                  </div>
+                  <span class="disparo-prog-lbl" id="disparo-pl">0 / 0</span>
+                </div>
+              </div>
+
+              <div class="disparo-search-wrap">
+                <div class="input-icon-wrap">
+                  <i class="ph ph-magnifying-glass"></i>
+                  <input type="text" class="disparo-search-input" id="disparo-si"
+                    placeholder="Buscar contato ou grupo..." oninput="disparoFilter()">
+                </div>
+              </div>
+
+              <div class="disparo-filter-row" id="disparo-filter-row">
+                <button class="disparo-fchip" id="fchip-today" onclick="disparoToggleFUFilter('today')">
+                  <i class="ph ph-calendar-check"></i> Hoje
+                </button>
+                <button class="disparo-fchip" id="fchip-overdue" onclick="disparoToggleFUFilter('overdue')">
+                  <i class="ph ph-warning"></i> Atrasados
+                </button>
+                <div id="disparo-tag-filter-wrap"></div>
+              </div>
+
+              <div class="disparo-clist" id="disparo-cl"></div>
+
+              <!-- Barra de limite (plano free) -->
+              <div class="disparo-limit-wrap" id="disparo-limit-wrap">
+                <div class="disparo-limit-track">
+                  <div class="disparo-limit-fill" id="disparo-limit-bar" style="width:0%"></div>
+                </div>
+                <span class="disparo-limit-label" id="disparo-limit-label">0 / 100 contatos</span>
+              </div>
+            </div>
+
+            <!-- COLUNA DIREITA: PAINEL PRINCIPAL -->
+            <div class="card card--disparo-main">
+              <div class="disparo-main" id="disparo-main">
+                <div class="disparo-empty">
+                  <div class="disparo-empty-icon"><i class="ph ph-chat-circle-dots"></i></div>
+                  <div class="disparo-empty-t">Nenhum contato selecionado</div>
+                  <div class="disparo-empty-s">Selecione um contato para personalizar e disparar a mensagem pelo
+                    WhatsApp
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-        </div><!-- /tool-body--disparo -->
+          </div><!-- /tool-body--disparo -->
 
         </div><!-- /panel-disparo-central -->
 
@@ -954,8 +953,7 @@
               <div class="form-field">
                 <label for="tmpl-body">Mensagem</label>
                 <div class="disparo-tbox">
-                  <textarea class="disparo-ta" id="tmpl-body" rows="7"
-                    oninput="tmplUpdateCounter()"
+                  <textarea class="disparo-ta" id="tmpl-body" rows="7" oninput="tmplUpdateCounter()"
                     placeholder="Use {nome}, {empresa}, {grupo}, {segmento} como variáveis"></textarea>
                   <div class="disparo-tbar">
                     <div class="disparo-var-chips">
@@ -1001,7 +999,7 @@
       </div><!-- /tool-disparo -->
 
       <!-- ══════════════════ TOOL: CRM KANBAN ══════════════════ -->
-      <div class="tool-view hidden" id="tool-crm">
+      <div class="tool-view" id="tool-crm">
         <div class="tool-header">
           <div class="tool-header-left">
             <h1 class="tool-title">CRM & Leads</h1>
@@ -1013,7 +1011,8 @@
           </div>
         </div>
 
-        <p class="tool-desc">Gerencie seus contatos do WhatsApp nas etapas de venda e mantenha o histórico das suas negociações.</p>
+        <p class="tool-desc">Gerencie seus contatos do WhatsApp nas etapas de venda e mantenha o histórico das suas
+          negociações.</p>
 
         <!-- Botão flutuante (Dock) do CRM -->
         <div class="floating-dock-wrapper">
@@ -1031,7 +1030,7 @@
         <!-- Board Kanban -->
         <div class="crm-board-wrapper">
           <div class="crm-board">
-            
+
             <div class="crm-col" data-stage="novo">
               <div class="crm-col-header">
                 <div><span class="crm-badge crm-badge--novo">Novo</span></div>
@@ -1087,14 +1086,16 @@
         <div class="disparo-modal-overlay" id="crm-transition-modal" onclick="crmCloseTransitionModal(event)">
           <div class="disparo-modal">
             <h3 class="disparo-modal-title">Anotação da Mudança</h3>
-            <p style="font-size: 0.85rem; color: var(--c-text-muted); margin-bottom: 12px;" id="crm-transition-desc"></p>
+            <p style="font-size: 0.85rem; color: var(--c-text-muted); margin-bottom: 12px;" id="crm-transition-desc">
+            </p>
             <div class="form-field">
               <label>Resumo / Nota <span class="label-unit">opcional</span></label>
               <textarea id="crm-transition-note" rows="3" placeholder="Ex: Cliente pediu desconto de 5%..."></textarea>
             </div>
             <div class="disparo-modal-footer">
               <button class="btn-reset" onclick="crmCloseTransitionModal()">Cancelar</button>
-              <button class="btn-calc" style="margin-top:0;width:auto;padding:10px 20px;" onclick="crmConfirmTransition()">
+              <button class="btn-calc" style="margin-top:0;width:auto;padding:10px 20px;"
+                onclick="crmConfirmTransition()">
                 <i class="ph ph-check"></i> Salvar
               </button>
             </div>
@@ -1189,7 +1190,8 @@
           <div class="tool-body">
 
             <div class="card">
-              <h2 class="card-title"><i class="ph ph-plus-circle"></i> <span id="sched-svc-form-title">Novo Serviço</span></h2>
+              <h2 class="card-title"><i class="ph ph-plus-circle"></i> <span id="sched-svc-form-title">Novo
+                  Serviço</span></h2>
 
               <div class="form-grid form-grid--2">
                 <div class="form-field">
@@ -1212,45 +1214,9 @@
                 </div>
               </div>
 
-              <!-- Campos do site público -->
-              <div class="sched-svc-site-section">
-                <div class="sched-svc-site-label"><i class="ph ph-globe"></i> Exibição no site público</div>
-                <div class="form-grid form-grid--2">
-                  <div class="form-field">
-                    <label for="sched-svc-image">URL da imagem principal</label>
-                    <div class="sched-svc-img-row">
-                      <input type="url" id="sched-svc-image" placeholder="https://..." oninput="schedSvcPreviewImg(this, 'sched-svc-img-preview')" />
-                      <div class="sched-svc-img-thumb" id="sched-svc-img-preview"><i class="ph ph-image"></i></div>
-                    </div>
-                  </div>
-                  <div class="form-field" id="sched-svc-image2-wrap">
-                    <label for="sched-svc-image2">URL da imagem 2 <span class="label-unit">pacotes</span></label>
-                    <div class="sched-svc-img-row">
-                      <input type="url" id="sched-svc-image2" placeholder="https://..." oninput="schedSvcPreviewImg(this, 'sched-svc-img-preview2')" />
-                      <div class="sched-svc-img-thumb" id="sched-svc-img-preview2"><i class="ph ph-image"></i></div>
-                    </div>
-                  </div>
-                </div>
-                <div class="form-grid form-grid--2">
-                  <div class="form-field">
-                    <label for="sched-svc-badge">Badge <span class="label-unit">ex: Mais popular</span></label>
-                    <input type="text" id="sched-svc-badge" placeholder="Deixe vazio para não exibir" />
-                  </div>
-                  <div class="form-field form-field--center">
-                    <label>Tipo de serviço</label>
-                    <label class="toggle-row" style="margin-top:6px;">
-                      <div class="toggle-switch-ui" id="sched-svc-pkg-toggle" role="switch" aria-checked="false" tabindex="0"
-                        onclick="schedSvcTogglePackage()" onkeydown="if(event.key==='Enter'||event.key===' ')schedSvcTogglePackage()">
-                        <span class="toggle-thumb-ui"></span>
-                      </div>
-                      <span class="toggle-label-text" id="sched-svc-pkg-label">Serviço avulso</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
               <div class="sched-svc-actions">
-                <button class="btn-reset" id="sched-svc-cancel-btn" onclick="schedSvcCancelEdit()" hidden>Cancelar</button>
+                <button class="btn-reset" id="sched-svc-cancel-btn" onclick="schedSvcCancelEdit()"
+                  hidden>Cancelar</button>
                 <button class="btn-calc" id="sched-svc-save-btn" onclick="schedSvcSave()">
                   <i class="ph ph-floppy-disk"></i> Salvar Serviço
                 </button>
@@ -1289,7 +1255,8 @@
 
             <div class="card">
               <h2 class="card-title"><i class="ph ph-clock"></i> Horários Padrão</h2>
-              <p class="tool-desc" style="margin-bottom:14px;">Defina os horários disponíveis para agendamento. Um por linha, no formato HH:MM.</p>
+              <p class="tool-desc" style="margin-bottom:14px;">Defina os horários disponíveis para agendamento. Um por
+                linha, no formato HH:MM.</p>
               <div class="form-field">
                 <label for="sched-times-ta">Horários disponíveis</label>
                 <textarea id="sched-times-ta" class="sched-times-ta" rows="6"
@@ -1299,7 +1266,8 @@
 
             <div class="card">
               <h2 class="card-title"><i class="ph ph-whatsapp-logo"></i> WhatsApp para Confirmações</h2>
-              <p class="tool-desc" style="margin-bottom:14px;">Número que receberá notificações quando novos agendamentos forem feitos pelo link público.</p>
+              <p class="tool-desc" style="margin-bottom:14px;">Número que receberá notificações quando novos
+                agendamentos forem feitos pelo link público.</p>
               <div class="form-field">
                 <label for="sched-whatsapp">Número com DDI</label>
                 <input type="text" id="sched-whatsapp" placeholder="5511999990001" />
@@ -1315,6 +1283,100 @@
         </div>
 
       </div><!-- /tool-sched -->
+
+      <!-- ══════════════════ TOOL: ADMIN ══════════════════ -->
+      <div class="tool-view hidden" id="tool-admin">
+
+        <div class="tool-header">
+          <div class="tool-header-left">
+            <h1 class="tool-title">Painel Admin</h1>
+            <nav class="breadcrumb-mini">
+              <a href="#">Início</a>
+              <i class="ph ph-caret-right"></i>
+              <span class="breadcrumb-current-mini">Usuários</span>
+            </nav>
+          </div>
+          <div class="tool-header-right">
+            <button class="btn-export" onclick="admLoadUsers()" title="Recarregar">
+              <i class="ph ph-arrows-clockwise"></i> Recarregar
+            </button>
+          </div>
+        </div>
+
+        <div class="admin-panel-body">
+
+          <!-- Stats -->
+          <div class="adm-stats-grid">
+            <div class="adm-stat-card">
+              <div class="adm-stat-label">Total</div>
+              <div class="adm-stat-value" id="adm-stat-total">—</div>
+            </div>
+            <div class="adm-stat-card adm-stat-card--green">
+              <div class="adm-stat-label">Perfil completo</div>
+              <div class="adm-stat-value" id="adm-stat-onboarded">—</div>
+            </div>
+            <div class="adm-stat-card adm-stat-card--blue">
+              <div class="adm-stat-label">Assinantes Orbit</div>
+              <div class="adm-stat-value" id="adm-stat-orbit">—</div>
+            </div>
+            <div class="adm-stat-card">
+              <div class="adm-stat-label">Gratuito</div>
+              <div class="adm-stat-value" id="adm-stat-free">—</div>
+            </div>
+            <div class="adm-stat-card adm-stat-card--green">
+              <div class="adm-stat-label">Com site ativo</div>
+              <div class="adm-stat-value" id="adm-stat-site">—</div>
+            </div>
+          </div>
+
+          <!-- Toolbar -->
+          <div class="adm-toolbar">
+            <div class="adm-search-wrap">
+              <i class="ph ph-magnifying-glass"></i>
+              <input type="text" class="adm-search-input" id="adm-search" placeholder="Buscar por nome, e-mail..."
+                oninput="admFilterUsers()" />
+            </div>
+            <select class="filter-select" id="adm-filter-plan" onchange="admFilterUsers()">
+              <option value="">Todos os planos</option>
+              <option value="free">Gratuito</option>
+              <option value="orbit">Orbit</option>
+            </select>
+            <select class="filter-select" id="adm-filter-site" onchange="admFilterUsers()">
+              <option value="">Todos os sites</option>
+              <option value="active">Site ativo</option>
+              <option value="none">Sem site</option>
+            </select>
+            <button class="btn-export" onclick="admExportCSV()">
+              <i class="ph ph-download-simple"></i> CSV
+            </button>
+          </div>
+
+          <!-- Tabela -->
+          <div class="table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Usuário</th>
+                  <th>Profissão / Empresa</th>
+                  <th>Cadastro</th>
+                  <th>Plano</th>
+                  <th>Perfil</th>
+                  <th>Site</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="adm-users-tbody">
+                <tr>
+                  <td colspan="7" class="table-status">
+                    <i class="ph ph-circle-notch adm-spinning"></i> Carregando...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div><!-- /tool-admin -->
 
       <!-- ══════════════════ PLACEHOLDER: EM BREVE ══════════════════ -->
       <div class="tool-view hidden" id="tool-coming-soon">
@@ -1374,7 +1436,8 @@
         </div>
         <div class="disparo-modal-footer">
           <button class="btn-reset" onclick="disparoCloseModal()">Cancelar</button>
-          <button class="btn-calc" id="disparo-modal-confirm-btn" style="margin-top:0;width:auto;padding:10px 20px;" onclick="disparoAddContact()">
+          <button class="btn-calc" id="disparo-modal-confirm-btn" style="margin-top:0;width:auto;padding:10px 20px;"
+            onclick="disparoAddContact()">
             <i class="ph ph-plus"></i> Adicionar
           </button>
         </div>
@@ -1473,7 +1536,8 @@
           <input type="text" id="ob-fullname" placeholder="Ex: João Silva" autocomplete="name" />
         </div>
         <div class="form-field">
-          <label for="ob-whatsapp">WhatsApp <span class="label-unit">com DDD</span> <span class="label-required">*</span></label>
+          <label for="ob-whatsapp">WhatsApp <span class="label-unit">com DDD</span> <span
+              class="label-required">*</span></label>
           <input type="tel" id="ob-whatsapp" placeholder="(11) 99999-9999" autocomplete="tel" />
         </div>
         <div class="form-field">
@@ -1513,9 +1577,11 @@
       <h3 class="disparo-modal-title"><i class="ph ph-upload-simple"></i> Importar Contatos via CSV</h3>
 
       <div class="import-format-hint">
-        <strong>Formato esperado</strong> — cada linha é um contato, colunas separadas por vírgula, ponto-e-vírgula ou tabulação:<br>
+        <strong>Formato esperado</strong> — cada linha é um contato, colunas separadas por vírgula, ponto-e-vírgula ou
+        tabulação:<br>
         <code>Nome, WhatsApp (DDI+número), Empresa, Segmento, Grupo</code><br>
-        <span>Você pode colar direto de uma planilha do Excel ou Google Sheets. Primeira linha pode ser cabeçalho (será ignorada automaticamente se não tiver número no campo WhatsApp).</span>
+        <span>Você pode colar direto de uma planilha do Excel ou Google Sheets. Primeira linha pode ser cabeçalho (será
+          ignorada automaticamente se não tiver número no campo WhatsApp).</span>
       </div>
 
       <div class="form-field" style="margin-top:14px;">
@@ -1540,6 +1606,62 @@
     </div>
   </div>
 
+  <!-- ══ MODAL GLOBAL: Admin — Editar Usuário ══ -->
+  <div class="sched-booking-overlay" id="adm-site-modal" onclick="admCloseSiteOverlay(event)">
+    <div class="sched-booking-modal" style="max-width:480px;">
+      <div class="sched-booking-modal-header">
+        <div>
+          <h3><i class="ph ph-pencil-simple"></i> Editar usuário</h3>
+          <p id="adm-site-modal-title" style="font-size:.8rem;color:var(--c-light);margin:2px 0 0;font-weight:400;"></p>
+        </div>
+        <button class="sched-booking-close" onclick="admCloseSiteModal()"><i class="ph ph-x"></i></button>
+      </div>
+      <div class="sched-booking-body">
+        <input type="hidden" id="adm-site-uid" />
+
+        <div class="form-field">
+          <label>Plano</label>
+          <div class="adm-site-status-row">
+            <button class="adm-site-status-btn" id="adm-plan-btn-free" onclick="admSetPlan('free')">
+              <i class="ph ph-user"></i> Gratuito
+            </button>
+            <button class="adm-site-status-btn" id="adm-plan-btn-orbit" onclick="admSetPlan('orbit')">
+              <i class="ph ph-rocket"></i> Orbit
+            </button>
+          </div>
+        </div>
+
+        <div class="adm-divider"></div>
+
+        <div class="form-field">
+          <label>Site público</label>
+          <div class="adm-site-status-row">
+            <button class="adm-site-status-btn" id="adm-site-btn-on" onclick="admSetSiteStatus(true)">
+              <i class="ph ph-globe"></i> Site ativo
+            </button>
+            <button class="adm-site-status-btn" id="adm-site-btn-off" onclick="admSetSiteStatus(false)">
+              <i class="ph ph-globe-x"></i> Sem site
+            </button>
+          </div>
+        </div>
+
+        <div class="form-field" id="adm-site-url-field">
+          <label for="adm-site-url">URL do site</label>
+          <input type="url" id="adm-site-url" placeholder="https://exemplo.com.br" />
+        </div>
+
+        <div class="auth-error" id="adm-site-error" hidden></div>
+      </div>
+      <div class="sched-booking-modal-footer">
+        <button class="btn-reset" onclick="admCloseSiteModal()">Cancelar</button>
+        <button class="btn-calc" id="adm-site-save-btn" onclick="admSaveSiteConfig()"
+          style="margin-top:0;width:auto;padding:10px 20px;">
+          <i class="ph ph-floppy-disk"></i> Salvar alterações
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ══ MODAL GLOBAL: Gerenciar Tenants ══ -->
   <div class="tenant-modal-overlay" id="tenant-modal-ov" onclick="closeTenantModalOverlay(event)">
     <div class="tenant-modal">
@@ -1548,7 +1670,8 @@
         <button class="sched-booking-close" onclick="closeTenantModal()"><i class="ph ph-x"></i></button>
       </div>
       <div class="tenant-modal-body">
-        <p class="tenant-modal-desc">Adicione os UIDs dos seus clientes para navegar entre as contas deles diretamente pelo Orbit Tools.</p>
+        <p class="tenant-modal-desc">Adicione os UIDs dos seus clientes para navegar entre as contas deles diretamente
+          pelo Orbit Tools.</p>
 
         <div class="tenant-form">
           <div class="form-field">
@@ -1625,7 +1748,8 @@
 
       <div class="sched-booking-modal-footer">
         <button class="btn-reset" onclick="schedCloseBookingModal()">Cancelar</button>
-        <button class="btn-calc" id="sched-bk-save-btn" onclick="schedSaveBooking()" style="margin-top:0;width:auto;padding:10px 20px;">
+        <button class="btn-calc" id="sched-bk-save-btn" onclick="schedSaveBooking()"
+          style="margin-top:0;width:auto;padding:10px 20px;">
           <i class="ph ph-floppy-disk"></i> Salvar
         </button>
       </div>
@@ -1638,6 +1762,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
   <script src="assets/js/firebase-config.js"></script>
   <script src="assets/js/script.js"></script>
+  <script src="assets/js/admin.js"></script>
   <script src="assets/js/auth.js"></script>
 
 </body>
