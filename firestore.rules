@@ -21,8 +21,8 @@ service cloud.firestore {
 
     /* ── Helper: verifica se o solicitante é super-admin ───────── */
     function isAdmin() {
-      return request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      let u = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return request.auth != null && (u.isAdmin == true || u.IsAdmin == true);
     }
 
     /* ── Dados do próprio usuário ──────────────────────────────── */

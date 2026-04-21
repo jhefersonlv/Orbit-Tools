@@ -265,9 +265,9 @@ function _checkOnboarding(user, openModalIfNeeded) {
       const navSched = document.getElementById('nav-item-sched');
       if (navSched) navSched.hidden = !data.hasSite;
 
-      /* Exibe Admin só para administradores */
+      /* Exibe Admin só para administradores (aceita isAdmin ou IsAdmin) */
       const navAdmin = document.getElementById('nav-item-admin');
-      if (navAdmin) navAdmin.hidden = !data.isAdmin;
+      if (navAdmin) navAdmin.hidden = !(data.isAdmin || data.IsAdmin);
 
       if (data.onboardingCompleted) return;
 
