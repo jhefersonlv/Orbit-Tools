@@ -312,6 +312,152 @@ function admSaveSiteConfig() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   CATÁLOGO DE PLANOS — CRUD
+   ═══════════════════════════════════════════════════════════════ */
+
+let _admEditingTemplateId = null;
+
+function admLoadPlanTemplates() {
+  if (typeof currentUser === 'undefined' || !currentUser) return;
+  planTemplatesLoad(currentUser.uid).then(templates => admRenderPlanTemplates(templates));
+}
+
+function admRenderPlanTemplates(templates) {
+  const wrap = document.getElementById('adm-plan-templates-list');
+  if (!wrap) return;
+
+  if (!templates || templates.length === 0) {
+    wrap.innerHTML = `
+      <div class="adm-tpl-empty">
+        <i class="ph ph-file-x"></i>
+        <p>Nenhum plano cadastrado ainda. Clique em <strong>+ Novo Plano</strong> para começar.</p>
+      </div>`;
+    return;
+  }
+
+  const fmtBRL = v => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  wrap.innerHTML = `
+    <div class="adm-tpl-grid">
+      ${templates.map(t => `
+        <div class="adm-tpl-card">
+          <div class="adm-tpl-card-header">
+            <span class="adm-tpl-name">${_admEsc(t.name)}</span>
+            <div class="adm-tpl-actions">
+              <button class="adm-tpl-btn adm-tpl-btn--edit" onclick="admOpenPlanTemplateModal('${t.id}')" title="Editar">
+                <i class="ph ph-pencil-simple"></i>
+              </button>
+              <button class="adm-tpl-btn adm-tpl-btn--del" onclick="admDeletePlanTemplate('${t.id}', '${_admEsc(t.name)}')" title="Excluir">
+                <i class="ph ph-trash"></i>
+              </button>
+            </div>
+          </div>
+          <div class="adm-tpl-card-body">
+            <div class="adm-tpl-detail">
+              <i class="ph ph-coins"></i>
+              <span>${t.credits} crédito${t.credits !== 1 ? 's' : ''}</span>
+            </div>
+            <div class="adm-tpl-detail">
+              <i class="ph ph-money"></i>
+              <span>${fmtBRL(t.price)}</span>
+            </div>
+            <div class="adm-tpl-detail">
+              <i class="ph ph-calendar-blank"></i>
+              <span>${t.durationDays || 30} dias</span>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+function admOpenPlanTemplateModal(templateId) {
+  _admEditingTemplateId = templateId || null;
+
+  const errEl = document.getElementById('adm-tpl-modal-error');
+  if (errEl) { errEl.textContent = ''; errEl.hidden = true; }
+
+  if (templateId) {
+    const t = (typeof _planTemplatesCache !== 'undefined' ? _planTemplatesCache : [])
+      .find(x => x.id === templateId);
+    if (t) {
+      document.getElementById('adm-tpl-name').value         = t.name         || '';
+      document.getElementById('adm-tpl-credits').value      = t.credits      || 1;
+      document.getElementById('adm-tpl-price').value        = t.price        || 0;
+      document.getElementById('adm-tpl-duration').value     = t.durationDays || 30;
+    }
+    const title = document.getElementById('adm-tpl-modal-title');
+    if (title) title.textContent = 'Editar Plano';
+  } else {
+    document.getElementById('adm-tpl-name').value     = '';
+    document.getElementById('adm-tpl-credits').value  = 4;
+    document.getElementById('adm-tpl-price').value    = '';
+    document.getElementById('adm-tpl-duration').value = 30;
+    const title = document.getElementById('adm-tpl-modal-title');
+    if (title) title.textContent = 'Novo Plano';
+  }
+
+  document.getElementById('adm-tpl-modal').classList.add('open');
+}
+
+function admClosePlanTemplateModal() {
+  document.getElementById('adm-tpl-modal').classList.remove('open');
+  _admEditingTemplateId = null;
+}
+
+function admSavePlanTemplate() {
+  if (typeof currentUser === 'undefined' || !currentUser) return;
+
+  const name        = (document.getElementById('adm-tpl-name').value        || '').trim();
+  const credits     = parseInt(document.getElementById('adm-tpl-credits').value)  || 0;
+  const price       = parseFloat(document.getElementById('adm-tpl-price').value)  || 0;
+  const durationDays= parseInt(document.getElementById('adm-tpl-duration').value) || 30;
+  const errEl       = document.getElementById('adm-tpl-modal-error');
+  const saveBtn     = document.getElementById('adm-tpl-save-btn');
+
+  if (!name) {
+    if (errEl) { errEl.textContent = 'Informe o nome do plano.'; errEl.hidden = false; }
+    return;
+  }
+  if (credits < 1) {
+    if (errEl) { errEl.textContent = 'Créditos deve ser pelo menos 1.'; errEl.hidden = false; }
+    return;
+  }
+
+  if (errEl) errEl.hidden = true;
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<i class="ph ph-circle-notch adm-spinning"></i> Salvando...'; }
+
+  planTemplateSave(currentUser.uid, _admEditingTemplateId, { name, credits, price, durationDays }, currentUser.uid)
+    .then(() => {
+      admClosePlanTemplateModal();
+      admRenderPlanTemplates(_planTemplatesCache);
+      if (typeof disparoShowToast === 'function') disparoShowToast('Plano salvo!');
+    })
+    .catch(err => {
+      console.error('[Admin] admSavePlanTemplate erro:', err);
+      if (errEl) { errEl.textContent = 'Erro ao salvar. Tente novamente.'; errEl.hidden = false; }
+    })
+    .finally(() => {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '<i class="ph ph-floppy-disk"></i> Salvar'; }
+    });
+}
+
+function admDeletePlanTemplate(templateId, templateName) {
+  if (typeof currentUser === 'undefined' || !currentUser) return;
+  if (!confirm(`Excluir o plano "${templateName}"?\n\nClientes com esse plano ativo não serão afetados.`)) return;
+
+  planTemplateDelete(currentUser.uid, templateId)
+    .then(() => {
+      admRenderPlanTemplates(_planTemplatesCache);
+      if (typeof disparoShowToast === 'function') disparoShowToast('Plano excluído.');
+    })
+    .catch(err => {
+      console.error('[Admin] admDeletePlanTemplate erro:', err);
+      if (typeof disparoShowToast === 'function') disparoShowToast('Erro ao excluir.', true);
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════
    UTILITÁRIOS
    ═══════════════════════════════════════════════════════════════ */
 

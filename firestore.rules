@@ -19,9 +19,21 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    /* ── Helper: verifica se o solicitante é super-admin ───────── */
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
     /* ── Dados do próprio usuário ──────────────────────────────── */
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      /* Leitura: próprio usuário ou super-admin (para admLoadUsers) */
+      allow read: if request.auth != null &&
+        (request.auth.uid == uid || isAdmin());
+
+      /* Escrita: próprio usuário ou super-admin (para admSaveSiteConfig) */
+      allow write: if request.auth != null &&
+        (request.auth.uid == uid || isAdmin());
 
       /* ── customers (SSOT — CRM de Governança) ───────────────── */
       match /customers/{customerId} {
@@ -34,6 +46,18 @@ service cloud.firestore {
           allow create: if request.auth != null && request.auth.uid == uid;
           allow update, delete: if false;
         }
+
+        /* Histórico de cobranças (imutável) */
+        match /billingHistory/{entryId} {
+          allow read:   if request.auth != null && request.auth.uid == uid;
+          allow create: if request.auth != null && request.auth.uid == uid;
+          allow update, delete: if false;
+        }
+      }
+
+      /* ── Catálogo de Templates de Planos ─────────────────────── */
+      match /planTemplates/{templateId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
       }
 
       /* ── Agendamentos ─────────────────────────────────────────── */

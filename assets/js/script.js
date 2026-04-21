@@ -26,6 +26,68 @@ function closeSidebar() {
 document.getElementById('sidebar-close').addEventListener('click', closeSidebar);
 window.addEventListener('resize', () => { if (window.innerWidth > 768) closeSidebar(); });
 
+/* ─── CUSTOM ALERT / CONFIRM MODALS ─────────────────────────── */
+function orbitConfirm(message, isDanger = false, title = 'Confirmação', confirmText = 'Confirmar', cancelText = 'Cancelar') {
+  return new Promise((resolve) => {
+    const ov = document.getElementById('orbit-confirm-ov');
+    if (!ov) { resolve(confirm(message)); return; } // fallback
+    const card = ov.querySelector('.orbit-dialog-card');
+    document.getElementById('orbit-confirm-title').textContent = title;
+    document.getElementById('orbit-confirm-desc').textContent = message;
+    
+    const btnCancel = document.getElementById('orbit-confirm-cancel');
+    const btnOk = document.getElementById('orbit-confirm-ok');
+    
+    btnCancel.textContent = cancelText;
+    btnOk.textContent = confirmText;
+    
+    card.classList.remove('orbit-dialog-card--danger', 'orbit-dialog-card--alert');
+    if (isDanger) card.classList.add('orbit-dialog-card--danger');
+
+    const cleanup = () => {
+      ov.classList.remove('open');
+      btnCancel.removeEventListener('click', onCancel);
+      btnOk.removeEventListener('click', onOk);
+    };
+
+    const onCancel = () => { cleanup(); resolve(false); };
+    const onOk = () => { cleanup(); resolve(true); };
+
+    btnCancel.addEventListener('click', onCancel);
+    btnOk.addEventListener('click', onOk);
+
+    ov.classList.add('open');
+  });
+}
+
+function orbitAlert(message, title = 'Atenção', btnText = 'OK') {
+  return new Promise((resolve) => {
+    const ov = document.getElementById('orbit-confirm-ov');
+    if (!ov) { alert(message); resolve(); return; } // fallback
+    const card = ov.querySelector('.orbit-dialog-card');
+    document.getElementById('orbit-confirm-title').textContent = title;
+    document.getElementById('orbit-confirm-desc').textContent = message;
+    
+    const btnCancel = document.getElementById('orbit-confirm-cancel');
+    const btnOk = document.getElementById('orbit-confirm-ok');
+    
+    btnOk.textContent = btnText;
+    
+    card.classList.remove('orbit-dialog-card--danger');
+    card.classList.add('orbit-dialog-card--alert');
+
+    const cleanup = () => {
+      ov.classList.remove('open');
+      btnOk.removeEventListener('click', onOk);
+    };
+
+    const onOk = () => { cleanup(); resolve(); };
+    btnOk.addEventListener('click', onOk);
+
+    ov.classList.add('open');
+  });
+}
+
 /* ─── Troca de ferramenta (sidebar) ─────────────────────────── */
 function loadTool(toolId, linkEl) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -41,6 +103,9 @@ function loadTool(toolId, linkEl) {
   if (toolId === 'sched') {
     schedRenderCalendar();
     schedRenderServices();
+  }
+  if (toolId === 'planos') {
+    if (typeof admLoadPlanTemplates === 'function') admLoadPlanTemplates();
   }
   if (toolId === 'admin') {
     if (typeof admLoadUsers === 'function') admLoadUsers();
@@ -2337,24 +2402,35 @@ let _planModalClientId = null;
 function planOpenModal(clientId) {
   _planModalClientId = clientId;
   const c   = (typeof disparoContacts !== 'undefined' ? disparoContacts : []).find(x => x.id === clientId);
-  const sub = c && c.subscription && c.subscription.status !== 'canceled' ? c.subscription : null;
+  const sub = c && c.subscription && c.subscription.status !== 'canceled' && c.subscription.status !== 'expired'
+              ? c.subscription : null;
 
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v !== undefined && v !== null) ? v : ''; };
-  set('plan-name',    sub ? sub.planName     : '');
-  set('plan-credits', sub ? sub.totalCredits : 4);
-  set('plan-used',    sub ? sub.usedCredits  : 0);
-  set('plan-price',   sub ? sub.price        : '');
-  set('plan-status',  sub ? sub.status       : 'active');
+  /* Popula o select de templates */
+  const tplSelect = document.getElementById('plan-tpl-select');
+  if (tplSelect) {
+    const templates = typeof _planTemplatesCache !== 'undefined' ? _planTemplatesCache : [];
+    const fmtBRL    = v => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    tplSelect.innerHTML = `<option value="">— Selecione um plano —</option>` +
+      templates.map(t => {
+        const sel = sub && sub.planId === t.id ? ' selected' : '';
+        return `<option value="${t.id}"${sel}>${_esc(t.name)} · ${t.credits} créd. · ${fmtBRL(t.price)} · ${t.durationDays || 30}d</option>`;
+      }).join('');
 
-  const dateEl = document.getElementById('plan-billing-date');
+    const noTplWarn = document.getElementById('plan-no-tpl-warn');
+    if (noTplWarn) noTplWarn.hidden = templates.length > 0;
+  }
+
+  /* Data de início */
+  const dateEl = document.getElementById('plan-start-date');
   if (dateEl) {
-    if (sub && sub.nextBillingDate instanceof Date) {
-      dateEl.value = sub.nextBillingDate.toISOString().slice(0, 10);
+    if (sub && sub.startDate instanceof Date) {
+      dateEl.value = _dateToInputVal(sub.startDate);
     } else {
-      const d = new Date(); d.setDate(d.getDate() + 30);
-      dateEl.value = d.toISOString().slice(0, 10);
+      dateEl.value = _dateToInputVal(new Date());
     }
   }
+
+  _planModalUpdatePreview(sub ? sub.planId : null);
 
   const titleEl = document.getElementById('plan-modal-client-name');
   if (titleEl) titleEl.textContent = c ? c.name : '—';
@@ -2368,6 +2444,27 @@ function planOpenModal(clientId) {
   document.getElementById('plan-modal-ov').classList.add('open');
 }
 
+/**
+ * Atualiza o bloco de preview quando o admin seleciona um template.
+ */
+function _planModalUpdatePreview(selectedPlanId) {
+  const preview = document.getElementById('plan-tpl-preview');
+  if (!preview) return;
+
+  const templates = typeof _planTemplatesCache !== 'undefined' ? _planTemplatesCache : [];
+  const t = templates.find(x => x.id === selectedPlanId);
+  if (!t) { preview.hidden = true; return; }
+
+  const fmtBRL = v => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  preview.hidden = false;
+  preview.innerHTML = `
+    <div class="plan-tpl-preview-row">
+      <span><i class="ph ph-coins"></i> ${t.credits} crédito${t.credits !== 1 ? 's' : ''}</span>
+      <span><i class="ph ph-money"></i> ${fmtBRL(t.price)}</span>
+      <span><i class="ph ph-calendar-blank"></i> ${t.durationDays || 30} dias</span>
+    </div>`;
+}
+
 function planModalClose() {
   document.getElementById('plan-modal-ov').classList.remove('open');
   _planModalClientId = null;
@@ -2376,31 +2473,42 @@ function planModalClose() {
 function planModalSave() {
   if (!_planModalClientId || !currentUser) return;
 
-  const get     = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
-  const errEl   = document.getElementById('plan-modal-error');
-  const saveBtn = document.getElementById('plan-modal-save-btn');
-  const planName = get('plan-name');
+  const tplSelect = document.getElementById('plan-tpl-select');
+  const errEl     = document.getElementById('plan-modal-error');
+  const saveBtn   = document.getElementById('plan-modal-save-btn');
 
-  if (!planName) {
-    if (errEl) { errEl.textContent = 'Informe o nome do plano.'; errEl.hidden = false; }
+  const tplId = tplSelect ? tplSelect.value : '';
+  if (!tplId) {
+    if (errEl) { errEl.textContent = 'Selecione um plano do catálogo.'; errEl.hidden = false; }
     return;
   }
 
-  const dateStr         = get('plan-billing-date');
-  const nextBillingDate = dateStr ? new Date(dateStr + 'T12:00:00') : null;
+  const templates = typeof _planTemplatesCache !== 'undefined' ? _planTemplatesCache : [];
+  const tpl = templates.find(x => x.id === tplId);
+  if (!tpl) {
+    if (errEl) { errEl.textContent = 'Plano não encontrado. Recarregue a página.'; errEl.hidden = false; }
+    return;
+  }
+
+  const dateEl    = document.getElementById('plan-start-date');
+  const startDate = dateEl && dateEl.value ? new Date(dateEl.value + 'T12:00:00') : new Date();
 
   const planData = {
-    planName,
-    totalCredits:   parseInt(get('plan-credits')) || 1,
-    usedCredits:    parseInt(get('plan-used'))    || 0,
-    price:          parseFloat(get('plan-price')) || 0,
-    status:         get('plan-status')            || 'active',
-    nextBillingDate,
+    planId:       tplId,
+    planName:     tpl.name,
+    totalCredits: tpl.credits,
+    price:        tpl.price,
+    durationDays: tpl.durationDays || 30,
+    startDate,
   };
 
   if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<i class="ph ph-circle-notch auth-spin"></i> Salvando…'; }
 
-  planSave(currentUser.uid, _planModalClientId, planData, currentUser.uid)
+  const c = (typeof disparoContacts !== 'undefined' ? disparoContacts : []).find(x => x.id === _planModalClientId);
+  const isNewAcquisition = !c || !c.subscription ||
+    c.subscription.status === 'canceled' || c.subscription.status === 'expired';
+
+  planSave(currentUser.uid, _planModalClientId, planData, currentUser.uid, isNewAcquisition)
     .then(() => {
       planModalClose();
       if (typeof clientesRenderTable       === 'function') clientesRenderTable();
@@ -2416,9 +2524,11 @@ function planModalSave() {
     });
 }
 
-function planCancelConfirm() {
+async function planCancelConfirm() {
   if (!_planModalClientId || !currentUser) return;
-  if (!confirm('Cancelar o plano deste cliente?')) return;
+  const ok = await orbitConfirm('Deseja realmente cancelar o plano deste cliente? Ele perderá acesso aos créditos atuais.', true, 'Cancelar Plano', 'Sim, cancelar');
+  if (!ok) return;
+
   const cancelBtn = document.getElementById('plan-cancel-btn');
   if (cancelBtn) cancelBtn.disabled = true;
 
@@ -2453,11 +2563,12 @@ function planUseCreditUI(clientId) {
     });
 }
 
-function planResetCycleUI(clientId) {
+async function planResetCycleUI(clientId) {
   if (!currentUser) return;
   const c = (typeof disparoContacts !== 'undefined' ? disparoContacts : []).find(x => x.id === clientId);
   if (!c) return;
-  if (!confirm(`Confirmar pagamento e resetar ciclo de "${c.name}"?`)) return;
+  const ok = await orbitConfirm(`Você vai registrar o pagamento e iniciar um novo ciclo de 30 dias para "${c.name}". Prosseguir?`, false, 'Renovar Plano', 'Renovar Plano');
+  if (!ok) return;
 
   planResetCycle(currentUser.uid, clientId, currentUser.uid)
     .then(() => {
@@ -2607,6 +2718,41 @@ function crmOpenHistoryModal(leadId) {
       } else if (type === 'customer_created') {
         icon = 'ph-user-plus';
         title = `<strong>Cliente Criado</strong>`;
+        noteHtml = h.note
+          ? `<div class="timeline-note">${h.note.replace(/\n/g, '<br>')}</div>`
+          : '';
+
+      } else if (type === 'promoted_to_client') {
+        icon = 'ph-trophy';
+        title = `<strong style="color:#f59e0b;">Promovido a Cliente</strong>`;
+        noteHtml = h.note
+          ? `<div class="timeline-note">${h.note.replace(/\n/g, '<br>')}</div>`
+          : '';
+
+      } else if (type === 'plan_updated') {
+        icon = 'ph-currency-circle-dollar';
+        title = `<strong style="color:#2563eb;">Plano Atualizado</strong>`;
+        noteHtml = h.note
+          ? `<div class="timeline-note">${h.note.replace(/\n/g, '<br>')}</div>`
+          : '';
+
+      } else if (type === 'plan_canceled') {
+        icon = 'ph-x-circle';
+        title = `<strong style="color:#ef4444;">Plano Cancelado</strong>`;
+        noteHtml = h.note
+          ? `<div class="timeline-note">${h.note.replace(/\n/g, '<br>')}</div>`
+          : '';
+
+      } else if (type === 'credit_used') {
+        icon = 'ph-minus-circle';
+        title = `<strong>Crédito Utilizado</strong>`;
+        noteHtml = h.note
+          ? `<div class="timeline-note">${h.note.replace(/\n/g, '<br>')}</div>`
+          : '';
+
+      } else if (type === 'cycle_reset') {
+        icon = 'ph-arrows-clockwise';
+        title = `<strong style="color:#16a34a;">Ciclo Resetado (Pagamento)</strong>`;
         noteHtml = h.note
           ? `<div class="timeline-note">${h.note.replace(/\n/g, '<br>')}</div>`
           : '';
@@ -3386,7 +3532,38 @@ function schedSaveBooking() {
             })
             .catch(err => console.error('[CRM] promoverParaCliente (agendamento) erro:', err));
         }
-        schedOpenGovModal(finalCustomerId, date, clientName);
+
+        const c = (typeof disparoContacts !== 'undefined' ? disparoContacts : []).find(x => x.id === finalCustomerId);
+        let hasActivePlan = false;
+        if (c && c.subscription && c.subscription.status !== 'canceled') {
+           const sub = c.subscription;
+           const isExpired = (sub.expiresAt instanceof Date && sub.expiresAt < new Date()) || sub.status === 'expired';
+           if (!isExpired && sub.status === 'active') {
+             hasActivePlan = true;
+           }
+        }
+
+        if (hasActivePlan) {
+          orbitConfirm(`O cliente "${c.name}" possui o plano ativo "${c.subscription.planName}".\nDeseja utilizar um crédito do plano em vez de cobrar avulso?`, false, 'Utilizar Crédito do Plano', 'Usar Crédito', 'Cobrar Avulso')
+            .then(useCredit => {
+              if (useCredit) {
+                 const sub = c.subscription;
+                 const used = sub.usedCredits || 0;
+                 const total = sub.totalCredits || 1;
+                 if (used >= total) {
+                   orbitAlert('Os créditos deste ciclo já foram todos utilizados! Registre uma venda avulsa ou renove o plano.', 'Limite Atingido').then(() => {
+                     schedOpenGovModal(finalCustomerId, date, clientName);
+                   });
+                 } else {
+                   planUseCreditUI(finalCustomerId);
+                 }
+              } else {
+                schedOpenGovModal(finalCustomerId, date, clientName);
+              }
+            });
+        } else {
+          schedOpenGovModal(finalCustomerId, date, clientName);
+        }
       }
 
     }).catch(() => {

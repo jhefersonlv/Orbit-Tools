@@ -3384,6 +3384,11 @@ input {
 .timeline-icon--appointment_linked { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
 .timeline-icon--customer_created   { background: #faf5ff; border-color: #c4b5fd; color: #6d28d9; }
 .timeline-icon--stage_change       { background: var(--c-bg); border-color: var(--c-border); color: var(--c-mid); }
+.timeline-icon--promoted_to_client { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+.timeline-icon--plan_updated       { background: #eff6ff; border-color: #93c5fd; color: #1e40af; }
+.timeline-icon--plan_canceled      { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+.timeline-icon--credit_used        { background: #f8fafc; border-color: var(--c-border); color: var(--c-mid); }
+.timeline-icon--cycle_reset        { background: #f0fdf4; border-color: #86efac; color: #166534; }
 
 /* Nota de venda com destaque */
 .timeline-note--sale {
@@ -5877,3 +5882,371 @@ a.crm-profile-detail:hover { background: #dcfce7; border-color: #bbf7d0; }
   line-height: 1.5;
 }
 .crm-promote-desc i { font-size: 1rem; margin-top: 1px; flex-shrink: 0; color: #16a34a; }
+
+/* ═══════════════════════════════════════════════════════════════
+   MODAL DE PLANO DE ASSINATURA (PREMIUM)
+   ═══════════════════════════════════════════════════════════════ */
+
+.plan-modal-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  overflow: hidden;
+  position: relative;
+  z-index: 1000;
+}
+
+.plan-modal-header {
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid var(--c-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: var(--c-bg);
+}
+
+.plan-modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.plan-modal-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--c-blue-lt) 0%, #dbeafe 100%);
+  color: var(--c-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.plan-modal-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--c-text);
+  letter-spacing: -0.01em;
+}
+
+.plan-modal-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--c-mid);
+  font-weight: 500;
+}
+
+.plan-modal-close {
+  background: transparent;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--c-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  font-size: 1.1rem;
+}
+
+.plan-modal-close:hover {
+  background: var(--c-border);
+  color: var(--c-text);
+}
+
+.plan-modal-body {
+  padding: 24px;
+}
+
+.plan-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.plan-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.plan-form-group--full {
+  grid-column: 1 / -1;
+}
+
+.plan-form-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--c-dark);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plan-form-label i {
+  color: var(--c-mid);
+  font-size: 0.95rem;
+}
+
+.plan-form-input, .plan-form-select {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  font-family: var(--font);
+  color: var(--c-text);
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+}
+
+.plan-form-input:focus, .plan-form-select:focus {
+  outline: none;
+  border-color: var(--c-blue);
+  background: var(--c-surface);
+  box-shadow: 0 0 0 3px var(--c-blue-lt);
+}
+
+.plan-form-error {
+  color: var(--c-red);
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin: 16px 0 0;
+  background: var(--c-red-lt);
+  padding: 8px 12px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plan-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--c-border);
+  background: var(--c-bg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.plan-modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.plan-btn-ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--c-mid);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.plan-btn-ghost:hover {
+  background: var(--c-border);
+  color: var(--c-text);
+}
+
+.plan-btn-cancel {
+  background: transparent;
+  border: 1px solid var(--c-red-lt);
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--c-red);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plan-btn-cancel:hover {
+  background: var(--c-red-lt);
+}
+
+.plan-btn-primary {
+  background: var(--c-blue);
+  border: none;
+  padding: 8px 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.25);
+}
+
+.plan-btn-primary:hover {
+  background: var(--c-blue-dk);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
+}
+
+.plan-btn-primary:active {
+  transform: translateY(0);
+}
+
+/* ── Preview do template selecionado no modal de plano ─────── */
+.plan-tpl-preview {
+  grid-column: 1 / -1;
+  background: var(--c-blue-lt, #eff6ff);
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.plan-tpl-preview-row {
+  display: flex; gap: 20px; flex-wrap: wrap;
+  font-size: 0.82rem; color: var(--c-blue, #2563eb); font-weight: 600;
+}
+.plan-tpl-preview-row span { display: flex; align-items: center; gap: 5px; }
+.plan-tpl-preview-row i   { font-size: 1rem; }
+
+/* ── Aviso "sem templates" no modal de plano ───────────────── */
+.plan-no-tpl-warn {
+  font-size: 0.8rem; color: #b45309; margin: 6px 0 0;
+  display: flex; align-items: center; gap: 6px;
+}
+.plan-no-tpl-warn a { color: #b45309; font-weight: 600; }
+
+/* ─────────────────────────────────────────────────────────────
+   CATÁLOGO DE PLANOS — Admin
+   ───────────────────────────────────────────────────────────── */
+.adm-section-divider {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--c-border, #e5e7eb);
+}
+.adm-section-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  margin-bottom: 16px; flex-wrap: wrap;
+}
+.adm-section-title {
+  font-size: 0.9rem; font-weight: 700; color: var(--c-dark, #111); margin: 0 0 4px;
+  display: flex; align-items: center; gap: 6px;
+}
+.adm-section-desc {
+  font-size: 0.8rem; color: var(--c-text-muted, #6b7280); margin: 0;
+}
+.adm-planos-intro {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: var(--c-bg, #f9fafb);
+  border: 1px solid var(--c-border, #e5e7eb);
+  border-radius: 10px;
+  font-size: 0.83rem;
+  color: var(--c-text-muted, #6b7280);
+  line-height: 1.5;
+}
+.adm-tpl-loading {
+  font-size: 0.82rem; color: var(--c-text-muted, #6b7280);
+  display: flex; align-items: center; gap: 6px;
+}
+.adm-tpl-empty {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px; background: var(--c-bg, #f9fafb);
+  border: 1px dashed var(--c-border, #e5e7eb); border-radius: 10px;
+  color: var(--c-text-muted, #6b7280); font-size: 0.83rem;
+}
+.adm-tpl-empty i { font-size: 1.4rem; flex-shrink: 0; }
+
+/* Grade de cards de templates */
+.adm-tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.adm-tpl-card {
+  background: var(--c-surface, #fff);
+  border: 1px solid var(--c-border, #e5e7eb);
+  border-radius: 12px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 10px;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.adm-tpl-card:hover {
+  border-color: var(--c-blue, #2563eb);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+.adm-tpl-card-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.adm-tpl-name {
+  font-size: 0.88rem; font-weight: 700; color: var(--c-dark, #111);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.adm-tpl-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.adm-tpl-btn {
+  width: 28px; height: 28px; border-radius: 7px;
+  border: 1px solid var(--c-border, #e5e7eb); background: transparent;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 0.85rem; color: var(--c-mid, #555); transition: all 0.15s;
+}
+.adm-tpl-btn--edit:hover { color: var(--c-blue, #2563eb); border-color: #bfdbfe; background: #eff6ff; }
+.adm-tpl-btn--del:hover  { color: #dc2626; border-color: #fca5a5; background: #fef2f2; }
+.adm-tpl-card-body { display: flex; flex-direction: column; gap: 5px; }
+.adm-tpl-detail {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.8rem; color: var(--c-text-muted, #6b7280);
+}
+.adm-tpl-detail i { color: var(--c-blue, #2563eb); font-size: 0.9rem; }
+
+/* ═══════════════════════════════════════════════════════════════
+   CUSTOM DIALOGS (Alert / Confirm)
+   ═══════════════════════════════════════════════════════════════ */
+.orbit-dialog-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.orbit-dialog-overlay.open { opacity: 1; pointer-events: auto; }
+.orbit-dialog-card {
+  background: var(--c-surface); width: 100%; max-width: 360px;
+  border-radius: 16px; padding: 24px; text-align: center;
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+  transform: scale(0.95); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.orbit-dialog-overlay.open .orbit-dialog-card { transform: scale(1); }
+.orbit-dialog-icon {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--c-blue-lt); color: var(--c-blue);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2rem; margin: 0 auto 16px;
+}
+.orbit-dialog-title { font-size: 1.15rem; font-weight: 700; color: var(--c-text); margin: 0 0 8px; }
+.orbit-dialog-desc { font-size: 0.9rem; color: var(--c-mid); margin: 0 0 24px; line-height: 1.5; }
+.orbit-dialog-actions { display: flex; gap: 12px; }
+.orbit-dialog-btn {
+  flex: 1; padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; border: none; outline: none;
+}
+.orbit-dialog-btn--cancel { background: var(--c-bg); color: var(--c-text); border: 1px solid var(--c-border); }
+.orbit-dialog-btn--cancel:hover { background: var(--c-border); }
+.orbit-dialog-btn--confirm { background: var(--c-blue); color: #fff; }
+.orbit-dialog-btn--confirm:hover { background: var(--c-blue-dk); }
+.orbit-dialog-card--danger .orbit-dialog-icon { background: var(--c-red-lt); color: var(--c-red); }
+.orbit-dialog-card--danger .orbit-dialog-btn--confirm { background: var(--c-red); }
+.orbit-dialog-card--danger .orbit-dialog-btn--confirm:hover { background: #b91c1c; }
+.orbit-dialog-card--alert .orbit-dialog-btn--cancel { display: none; }
+.orbit-dialog-card--alert .orbit-dialog-icon { background: var(--c-amber-lt); color: #d97706; }
+

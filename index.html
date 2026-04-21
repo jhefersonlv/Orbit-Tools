@@ -57,9 +57,10 @@
         <i class="ph ph-car"></i>
         <span>Calculadora de KM</span>
       </a>
-
-
-
+      <a href="#" class="nav-item" data-tool="planos" onclick="loadTool('planos', this)">
+        <i class="ph ph-squares-four"></i>
+        <span>Planos</span>
+      </a>
 
     </nav>
 
@@ -1408,6 +1409,36 @@
         </div>
       </div>
 
+      <!-- ══════════════════ TOOL: PLANOS ══════════════════ -->
+      <div class="tool-view hidden" id="tool-planos">
+
+        <div class="tool-header">
+          <div class="tool-header-left">
+            <h1 class="tool-title"><i class="ph ph-squares-four"></i> Catálogo de Planos</h1>
+            <nav class="breadcrumb-mini">
+              <a href="#">Início</a>
+              <i class="ph ph-caret-right"></i>
+              <span class="breadcrumb-current-mini">Planos</span>
+            </nav>
+          </div>
+          <div class="tool-header-right">
+            <button class="btn-export" onclick="admOpenPlanTemplateModal()">
+              <i class="ph ph-plus"></i> Novo Plano
+            </button>
+          </div>
+        </div>
+
+        <div class="admin-panel-body">
+          <div class="adm-planos-intro">
+            <p>Defina aqui os planos que você oferece aos seus clientes. Ao atribuir um plano, basta selecionar um da lista — as configurações de créditos, valor e duração já ficam salvas.</p>
+          </div>
+          <div id="adm-plan-templates-list">
+            <p class="adm-tpl-loading"><i class="ph ph-circle-notch adm-spinning"></i> Carregando...</p>
+          </div>
+        </div>
+
+      </div><!-- /tool-planos -->
+
       <!-- ══════════════════ TOOL: ADMIN ══════════════════ -->
       <div class="tool-view hidden" id="tool-admin">
 
@@ -1500,11 +1531,9 @@
           </div>
 
           <!-- ── Governança de Dados ─────────────────────────────── -->
-          <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--c-border,#e5e7eb);">
-            <h3 style="font-size:0.85rem;font-weight:600;margin-bottom:4px;">
-              <i class="ph ph-database"></i> Governança de Dados — CRM
-            </h3>
-            <p style="font-size:0.8rem;color:var(--c-text-muted,#6b7280);margin-bottom:12px;">
+          <div class="adm-section-divider">
+            <h3 class="adm-section-title"><i class="ph ph-database"></i> Governança de Dados — CRM</h3>
+            <p class="adm-section-desc">
               Migre contatos de <code>disparo_contacts</code> para a coleção centralizada <code>customers</code>.
               Execute uma única vez por conta. A coleção original não será apagada (backup automático).
             </p>
@@ -1542,55 +1571,102 @@
     </main>
 
     <!-- ══ MODAL GLOBAL: Plano de Assinatura ══ -->
-    <div class="disparo-modal-overlay" id="plan-modal-ov"
-         onclick="if(event.target===this) planModalClose()">
-      <div class="disparo-modal" style="max-width:480px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <h3 class="disparo-modal-title" style="margin:0;"><i class="ph ph-currency-circle-dollar"></i> Plano de Assinatura</h3>
-          <button class="disparo-modal-close" onclick="planModalClose()"><i class="ph ph-x"></i></button>
-        </div>
-        <p style="font-size:0.82rem;color:var(--c-text-muted);margin-bottom:16px;" id="plan-modal-client-name">—</p>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <div style="grid-column:1/-1;">
-            <label class="disparo-label">Nome do Plano</label>
-            <input class="disparo-input" id="plan-name" placeholder="Ex: Plano Gold" />
+    <div class="disparo-modal-overlay" id="plan-modal-ov" onclick="if(event.target===this) planModalClose()">
+      <div class="plan-modal-card">
+        <div class="plan-modal-header">
+          <div class="plan-modal-title-wrap">
+            <div class="plan-modal-icon"><i class="ph ph-currency-circle-dollar"></i></div>
+            <div>
+              <h3 class="plan-modal-title">Plano de Assinatura</h3>
+              <p class="plan-modal-subtitle" id="plan-modal-client-name">—</p>
+            </div>
           </div>
-          <div>
-            <label class="disparo-label">Créditos/Ciclo</label>
-            <input class="disparo-input" id="plan-credits" type="number" min="1" placeholder="4" />
-          </div>
-          <div>
-            <label class="disparo-label">Já usados (atual)</label>
-            <input class="disparo-input" id="plan-used" type="number" min="0" placeholder="0" />
-          </div>
-          <div>
-            <label class="disparo-label">Valor (R$)</label>
-            <input class="disparo-input" id="plan-price" type="number" min="0" step="0.01" placeholder="0,00" />
-          </div>
-          <div>
-            <label class="disparo-label">Próx. Cobrança</label>
-            <input class="disparo-input" id="plan-billing-date" type="date" />
-          </div>
-          <div style="grid-column:1/-1;">
-            <label class="disparo-label">Status</label>
-            <select class="disparo-input" id="plan-status">
-              <option value="active">Ativo</option>
-              <option value="overdue">Atrasado</option>
-              <option value="canceled">Cancelado</option>
-            </select>
-          </div>
+          <button class="plan-modal-close" onclick="planModalClose()"><i class="ph ph-x"></i></button>
         </div>
 
-        <p style="color:#ef4444;font-size:0.8rem;margin:8px 0 0;" id="plan-modal-error" hidden></p>
+        <div class="plan-modal-body">
+          <div class="plan-form-grid">
+            <div class="plan-form-group plan-form-group--full">
+              <label class="plan-form-label"><i class="ph ph-squares-four"></i> Plano do Catálogo</label>
+              <select class="plan-form-select" id="plan-tpl-select"
+                onchange="_planModalUpdatePreview(this.value)">
+                <option value="">— Selecione um plano —</option>
+              </select>
+              <p class="plan-no-tpl-warn" id="plan-no-tpl-warn" hidden>
+                <i class="ph ph-warning"></i> Nenhum plano cadastrado.
+                <a href="#" onclick="loadTool('planos', document.querySelector('[data-tool=planos]')); planModalClose(); return false;">
+                  Crie planos em Planos
+                </a>.
+              </p>
+            </div>
 
-        <div class="disparo-modal-footer" style="margin-top:16px;display:flex;gap:8px;justify-content:space-between;align-items:center;">
-          <button class="btn-reset" id="plan-cancel-btn" style="color:#ef4444;" onclick="planCancelConfirm()" hidden>
+            <div class="plan-tpl-preview" id="plan-tpl-preview" hidden></div>
+
+            <div class="plan-form-group plan-form-group--full">
+              <label class="plan-form-label"><i class="ph ph-calendar-blank"></i> Início do Ciclo</label>
+              <input class="plan-form-input" id="plan-start-date" type="date" />
+            </div>
+          </div>
+          <p class="plan-form-error" id="plan-modal-error" hidden></p>
+        </div>
+
+        <div class="plan-modal-footer">
+          <button class="plan-btn-cancel" id="plan-cancel-btn" onclick="planCancelConfirm()" hidden>
             <i class="ph ph-trash"></i> Cancelar Plano
           </button>
-          <div style="display:flex;gap:8px;margin-left:auto;">
-            <button class="btn-reset" onclick="planModalClose()">Fechar</button>
-            <button class="btn-calc" id="plan-modal-save-btn" style="margin:0;width:auto;padding:10px 20px;" onclick="planModalSave()">
+          <div class="plan-modal-actions">
+            <button class="plan-btn-ghost" onclick="planModalClose()">Voltar</button>
+            <button class="plan-btn-primary" id="plan-modal-save-btn" onclick="planModalSave()">
+              <i class="ph ph-floppy-disk"></i> Salvar Plano
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ MODAL: Catálogo de Planos — Criar / Editar Template ══ -->
+    <div class="disparo-modal-overlay" id="adm-tpl-modal" onclick="if(event.target===this) admClosePlanTemplateModal()">
+      <div class="plan-modal-card" style="max-width:420px">
+        <div class="plan-modal-header">
+          <div class="plan-modal-title-wrap">
+            <div class="plan-modal-icon"><i class="ph ph-squares-four"></i></div>
+            <div>
+              <h3 class="plan-modal-title" id="adm-tpl-modal-title">Novo Plano</h3>
+              <p class="plan-modal-subtitle">Defina nome, créditos, valor e duração</p>
+            </div>
+          </div>
+          <button class="plan-modal-close" onclick="admClosePlanTemplateModal()"><i class="ph ph-x"></i></button>
+        </div>
+
+        <div class="plan-modal-body">
+          <div class="plan-form-grid">
+            <div class="plan-form-group plan-form-group--full">
+              <label class="plan-form-label"><i class="ph ph-tag"></i> Nome do Plano</label>
+              <input class="plan-form-input" id="adm-tpl-name" placeholder="Ex: Mensal Básico" />
+            </div>
+
+            <div class="plan-form-group">
+              <label class="plan-form-label"><i class="ph ph-coins"></i> Créditos por Ciclo</label>
+              <input class="plan-form-input" id="adm-tpl-credits" type="number" min="1" placeholder="4" />
+            </div>
+
+            <div class="plan-form-group">
+              <label class="plan-form-label"><i class="ph ph-money"></i> Valor (R$)</label>
+              <input class="plan-form-input" id="adm-tpl-price" type="number" min="0" step="0.01" placeholder="0.00" />
+            </div>
+
+            <div class="plan-form-group plan-form-group--full">
+              <label class="plan-form-label"><i class="ph ph-calendar-blank"></i> Duração do Ciclo (dias)</label>
+              <input class="plan-form-input" id="adm-tpl-duration" type="number" min="1" placeholder="30" />
+            </div>
+          </div>
+          <p class="plan-form-error" id="adm-tpl-modal-error" hidden></p>
+        </div>
+
+        <div class="plan-modal-footer">
+          <div class="plan-modal-actions">
+            <button class="plan-btn-ghost" onclick="admClosePlanTemplateModal()">Cancelar</button>
+            <button class="plan-btn-primary" id="adm-tpl-save-btn" onclick="admSavePlanTemplate()">
               <i class="ph ph-floppy-disk"></i> Salvar
             </button>
           </div>
@@ -2126,6 +2202,21 @@
       </div>
     </div>
   </div>
+
+    <!-- ══ CUSTOM DIALOG (Alert / Confirm) ══ -->
+    <div class="orbit-dialog-overlay" id="orbit-confirm-ov" onclick="if(event.target===this) document.getElementById('orbit-confirm-ov').classList.remove('open')">
+      <div class="orbit-dialog-card">
+        <div class="orbit-dialog-icon"><i class="ph ph-question"></i></div>
+        <div class="orbit-dialog-content">
+          <h3 class="orbit-dialog-title" id="orbit-confirm-title">Confirmação</h3>
+          <p class="orbit-dialog-desc" id="orbit-confirm-desc">Tem certeza?</p>
+        </div>
+        <div class="orbit-dialog-actions">
+          <button class="orbit-dialog-btn orbit-dialog-btn--cancel" id="orbit-confirm-cancel">Cancelar</button>
+          <button class="orbit-dialog-btn orbit-dialog-btn--confirm" id="orbit-confirm-ok">Confirmar</button>
+        </div>
+      </div>
+    </div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>

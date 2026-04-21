@@ -95,13 +95,19 @@ function crmLoadCustomers(uid) {
           followUpDate:     d.followUpDate       || null,
           origin:           d.origin             || 'manual',
           subscription:     d.subscription ? {
-            planName:        d.subscription.planName       || '',
-            totalCredits:    d.subscription.totalCredits   || 0,
-            usedCredits:     d.subscription.usedCredits    || 0,
+            planId:          d.subscription.planId          || '',
+            planName:        d.subscription.planName        || '',
+            totalCredits:    d.subscription.totalCredits    || 0,
+            usedCredits:     d.subscription.usedCredits     || 0,
+            price:           d.subscription.price           || 0,
+            durationDays:    d.subscription.durationDays    || 30,
+            status:          d.subscription.status          || 'active',
+            startDate:       d.subscription.startDate
+                               ? d.subscription.startDate.toDate()        : null,
+            expiresAt:       d.subscription.expiresAt
+                               ? d.subscription.expiresAt.toDate()        : null,
             nextBillingDate: d.subscription.nextBillingDate
-                               ? d.subscription.nextBillingDate.toDate() : null,
-            status:          d.subscription.status         || 'active',
-            price:           d.subscription.price          || 0,
+                               ? d.subscription.nextBillingDate.toDate()  : null,
           } : null,
         };
       });
@@ -112,7 +118,9 @@ function crmLoadCustomers(uid) {
       if (typeof _updateTagFilterChips  === 'function') _updateTagFilterChips();
       if (typeof renderCRM              === 'function') renderCRM();
       if (typeof clientesRenderTable    === 'function') clientesRenderTable();
+      planCheckExpiredLocally();
       crmRenderInsights();
+      planTemplatesLoad(uid);
     })
     .catch(err => console.error('[CRM] crmLoadCustomers erro:', err));
 }
@@ -268,6 +276,7 @@ function crmGetHistory(uid, customerId, callback) {
         const d = doc.data();
         return {
           date:        d.date ? d.date.toDate() : new Date(),
+          type:        d.type        || 'stage_change',
           oldStage:    d.oldStage    || '',
           targetStage: d.targetStage || '',
           note:        d.note        || '',
@@ -364,6 +373,9 @@ function crmRenderInsights() {
   const currentMonth  = new Date().getMonth() + 1;
   const birthdays     = contacts.filter(c => c.birthdayMonth === currentMonth).length;
 
+  /* Planos expirando nos próximos 7 dias */
+  const expiringPlans = (typeof planGetExpiringSoon === 'function') ? planGetExpiringSoon(7).length : 0;
+
   wrap.innerHTML = `
     <div class="crm-insight-card crm-insight--green crm-insight--clickable"
          onclick="clientesGoToFilter('active_30')"
@@ -415,6 +427,17 @@ function crmRenderInsights() {
       </div>
       <i class="ph ph-arrow-right crm-insight-arrow"></i>
     </div>
+    ${expiringPlans > 0 ? `
+    <div class="crm-insight-card crm-insight--purple crm-insight--clickable"
+         onclick="loadTool('clientes', document.querySelector('[data-tool=clientes]'))"
+         title="Planos vencendo nos próximos 7 dias">
+      <i class="ph ph-credit-card"></i>
+      <div>
+        <div class="crm-insight-val">${expiringPlans}</div>
+        <div class="crm-insight-lbl">Planos Expirando</div>
+      </div>
+      <i class="ph ph-arrow-right crm-insight-arrow"></i>
+    </div>` : ''}
   `;
 
   /* Renderiza o Relatório de Ressurreição se o container existir */
@@ -831,11 +854,21 @@ function clientesRenderTable() {
 
 function _planCell(c) {
   const sub = c.subscription;
+  const now = new Date();
+
+  /* Sem plano ou cancelado */
   if (!sub || sub.status === 'canceled') {
     return `<button class="plan-add-btn" onclick="planOpenModal('${c.id}')" title="Criar plano">
               <i class="ph ph-plus"></i> Plano
             </button>`;
   }
+
+  /* Verifica expiração local */
+  const isExpired = (sub.expiresAt instanceof Date && sub.expiresAt < now) || sub.status === 'expired';
+  const daysLeft  = sub.expiresAt instanceof Date
+    ? Math.ceil((sub.expiresAt.getTime() - now.getTime()) / 86400000)
+    : null;
+  const isExpiringSoon = !isExpired && daysLeft !== null && daysLeft <= 7;
 
   const used  = sub.usedCredits  || 0;
   const total = sub.totalCredits || 1;
@@ -843,13 +876,30 @@ function _planCell(c) {
   const full  = used >= total;
   const esc   = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-  const statusCls = { active: 'plan-status--active', overdue: 'plan-status--overdue', canceled: 'plan-status--canceled' }[sub.status] || '';
+  const statusLabel = isExpired        ? 'Expirado'
+                    : sub.status === 'overdue'   ? 'Atrasado'
+                    : sub.status === 'canceled'  ? 'Cancelado'
+                    : 'Ativo';
+  const statusCls   = isExpired        ? 'plan-status--expired'
+                    : sub.status === 'overdue'   ? 'plan-status--overdue'
+                    : sub.status === 'canceled'  ? 'plan-status--canceled'
+                    : 'plan-status--active';
+
+  const expiryHint = isExpired
+    ? `<span class="plan-expiry plan-expiry--expired"><i class="ph ph-warning"></i> Expirado</span>`
+    : isExpiringSoon
+    ? `<span class="plan-expiry plan-expiry--soon"><i class="ph ph-clock"></i> ${daysLeft}d</span>`
+    : daysLeft !== null
+    ? `<span class="plan-expiry">Expira ${sub.expiresAt.toLocaleDateString('pt-BR')}</span>`
+    : '';
+
+  const canUse = !full && !isExpired && sub.status === 'active';
 
   return `
-    <div class="plan-cell">
+    <div class="plan-cell ${isExpired ? 'plan-cell--expired' : isExpiringSoon ? 'plan-cell--expiring' : ''}">
       <div class="plan-cell-top">
         <span class="plan-name-lbl">${esc(sub.planName)}</span>
-        <span class="plan-status ${statusCls}">${sub.status === 'overdue' ? 'Atrasado' : sub.status === 'canceled' ? 'Cancelado' : 'Ativo'}</span>
+        <span class="plan-status ${statusCls}">${statusLabel}</span>
       </div>
       <div class="plan-progress-wrap" title="${used}/${total} créditos usados">
         <div class="plan-progress-bar">
@@ -857,11 +907,17 @@ function _planCell(c) {
         </div>
         <span class="plan-progress-lbl">${used}/${total}</span>
       </div>
+      ${expiryHint}
       <div class="plan-cell-actions">
-        <button class="plan-action-btn plan-action-btn--use ${full || sub.status !== 'active' ? 'plan-action-btn--disabled' : ''}"
-          onclick="planUseCreditUI('${c.id}')" title="Usar 1 crédito" ${full || sub.status !== 'active' ? 'disabled' : ''}>
-          <i class="ph ph-minus-circle"></i> Usar
-        </button>
+        ${isExpired
+          ? `<button class="plan-action-btn plan-action-btn--renew" onclick="planResetCycleUI('${c.id}')" title="Renovar plano">
+               <i class="ph ph-arrows-clockwise"></i> Renovar
+             </button>`
+          : `<button class="plan-action-btn plan-action-btn--use ${!canUse ? 'plan-action-btn--disabled' : ''}"
+               onclick="planUseCreditUI('${c.id}')" title="Usar 1 crédito" ${!canUse ? 'disabled' : ''}>
+               <i class="ph ph-minus-circle"></i> Usar
+             </button>`
+        }
         <button class="plan-action-btn" onclick="planOpenModal('${c.id}')" title="Editar plano">
           <i class="ph ph-pencil-simple"></i>
         </button>
@@ -924,39 +980,177 @@ function _clientesRow(c) {
    MÓDULO DE RECORRÊNCIA E PLANOS
    ═══════════════════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════════════════
+   CATÁLOGO DE TEMPLATES DE PLANOS
+   ═══════════════════════════════════════════════════════════════ */
+
+let _planTemplatesCache = [];
+
+/**
+ * Carrega templates de planos do Firestore e popula o cache global.
+ */
+function planTemplatesLoad(uid) {
+  if (!uid) return Promise.resolve([]);
+  return db.collection('users').doc(uid).collection('planTemplates')
+    .orderBy('name', 'asc')
+    .get()
+    .then(snap => {
+      _planTemplatesCache = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return _planTemplatesCache;
+    })
+    .catch(err => {
+      console.error('[Plan] planTemplatesLoad erro:', err);
+      return [];
+    });
+}
+
+/**
+ * Cria ou atualiza um template de plano.
+ * templateId = null → cria novo; templateId = string → atualiza existente.
+ */
+function planTemplateSave(uid, templateId, data, adminUid) {
+  if (!uid) return Promise.reject('uid obrigatório');
+  const payload = {
+    name:         data.name                  || '',
+    credits:      Number(data.credits)       || 1,
+    price:        Number(data.price)         || 0,
+    durationDays: Number(data.durationDays)  || 30,
+    updatedBy:    adminUid                   || uid,
+    updatedAt:    firebase.firestore.FieldValue.serverTimestamp(),
+  };
+  const col = db.collection('users').doc(uid).collection('planTemplates');
+  if (templateId) {
+    return col.doc(templateId).update(payload).then(() => {
+      const idx = _planTemplatesCache.findIndex(t => t.id === templateId);
+      if (idx > -1) _planTemplatesCache[idx] = { ..._planTemplatesCache[idx], ...payload };
+      return templateId;
+    });
+  }
+  payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+  return col.add(payload).then(ref => {
+    _planTemplatesCache.push({ id: ref.id, ...payload });
+    _planTemplatesCache.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
+    return ref.id;
+  });
+}
+
+/**
+ * Remove um template de plano.
+ */
+function planTemplateDelete(uid, templateId) {
+  if (!uid || !templateId) return Promise.resolve();
+  return db.collection('users').doc(uid).collection('planTemplates')
+    .doc(templateId)
+    .delete()
+    .then(() => {
+      _planTemplatesCache = _planTemplatesCache.filter(t => t.id !== templateId);
+    });
+}
+
+/**
+ * Grava registro de cobrança na subcoleção billingHistory (separado do history geral).
+ */
+function _billingWriteRecord(uid, customerId, type, sub, adminUid) {
+  if (!uid || !customerId) return Promise.resolve();
+  return db.collection('users').doc(uid)
+    .collection('customers').doc(customerId)
+    .collection('billingHistory')
+    .add({
+      type,
+      planId:     sub.planId      || '',
+      planName:   sub.planName    || '',
+      price:      sub.price       || 0,
+      credits:    sub.totalCredits || 0,
+      cycleStart: sub.startDate instanceof Date
+                    ? firebase.firestore.Timestamp.fromDate(sub.startDate) : null,
+      cycleEnd:   sub.expiresAt instanceof Date
+                    ? firebase.firestore.Timestamp.fromDate(sub.expiresAt) : null,
+      recordedBy: adminUid || uid,
+      recordedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    })
+    .catch(err => console.error('[Plan] _billingWriteRecord erro:', err));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MÓDULO DE RECORRÊNCIA E PLANOS
+   ═══════════════════════════════════════════════════════════════ */
+
 /**
  * Salva ou atualiza o plano de assinatura de um cliente.
+ * isNewAcquisition = true → novo plano: reseta créditos, define startDate/expiresAt e registra venda.
+ * planData deve conter: planId, planName, totalCredits, price, durationDays, startDate (opcional).
  */
-function planSave(uid, customerId, planData, adminUid) {
+function planSave(uid, customerId, planData, adminUid, isNewAcquisition) {
   if (!uid || !customerId) return Promise.reject('ids ausentes');
 
+  const duration   = Number(planData.durationDays) || 30;
+  const startDate  = planData.startDate instanceof Date ? planData.startDate : new Date();
+  const expiresAt  = new Date(startDate.getTime() + duration * 86400000);
+
   const sub = {
-    planName:        planData.planName       || '',
+    planId:          planData.planId          || '',
+    planName:        planData.planName        || '',
     totalCredits:    Number(planData.totalCredits) || 0,
-    usedCredits:     Number(planData.usedCredits)  || 0,
+    usedCredits:     isNewAcquisition ? 0 : 0,
     price:           Number(planData.price)        || 0,
-    status:          planData.status        || 'active',
-    nextBillingDate: planData.nextBillingDate instanceof Date
-      ? firebase.firestore.Timestamp.fromDate(planData.nextBillingDate)
-      : null,
+    durationDays:    duration,
+    status:          'active',
+    startDate:       firebase.firestore.Timestamp.fromDate(startDate),
+    expiresAt:       firebase.firestore.Timestamp.fromDate(expiresAt),
+    nextBillingDate: firebase.firestore.Timestamp.fromDate(expiresAt),
   };
 
-  return db.collection('users').doc(uid).collection('customers').doc(customerId)
-    .update({
-      subscription: sub,
-      updatedBy:    adminUid || uid,
-      updatedAt:    firebase.firestore.FieldValue.serverTimestamp(),
-    })
-    .then(() => {
-      /* Atualiza memória local */
-      const c = (typeof disparoContacts !== 'undefined' ? disparoContacts : [])
-        .find(x => x.id === customerId);
-      if (c) c.subscription = { ...planData, nextBillingDate: planData.nextBillingDate || null };
+  const patch = {
+    subscription: sub,
+    updatedBy:    adminUid || uid,
+    updatedAt:    firebase.firestore.FieldValue.serverTimestamp(),
+  };
 
-      return crmWriteHistory(uid, customerId, {
-        type: 'plan_updated',
-        note: `Plano: ${sub.planName} | ${sub.totalCredits} créditos/ciclo | R$ ${sub.price}`,
-      }, adminUid || uid);
+  /* Registra venda quando novo plano é adquirido */
+  const price = Number(planData.price) || 0;
+  if (isNewAcquisition && price > 0) {
+    const c0 = (typeof disparoContacts !== 'undefined' ? disparoContacts : []).find(x => x.id === customerId);
+    patch.totalSpent       = ((c0 && c0.totalSpent)    || 0) + price;
+    patch.purchaseCount    = ((c0 && c0.purchaseCount) || 0) + 1;
+    patch.lastPurchaseDate = firebase.firestore.Timestamp.fromDate(startDate);
+  }
+
+  return db.collection('users').doc(uid).collection('customers').doc(customerId)
+    .update(patch)
+    .then(() => {
+      const c = (typeof disparoContacts !== 'undefined' ? disparoContacts : []).find(x => x.id === customerId);
+      if (c) {
+        c.subscription = {
+          planId:          sub.planId,
+          planName:        sub.planName,
+          totalCredits:    sub.totalCredits,
+          usedCredits:     0,
+          price:           sub.price,
+          durationDays:    duration,
+          status:          'active',
+          startDate,
+          expiresAt,
+          nextBillingDate: expiresAt,
+        };
+        if (isNewAcquisition && price > 0) {
+          c.totalSpent    = (c.totalSpent    || 0) + price;
+          c.purchaseCount = (c.purchaseCount || 0) + 1;
+          c.lastPurchaseDate = startDate;
+        }
+      }
+
+      const histNote = isNewAcquisition
+        ? `Novo plano: ${sub.planName} | ${sub.totalCredits} créditos | R$ ${price} | ${startDate.toLocaleDateString('pt-BR')} → ${expiresAt.toLocaleDateString('pt-BR')}`
+        : `Plano atualizado: ${sub.planName} | ${sub.totalCredits} créditos | R$ ${price}`;
+
+      return Promise.all([
+        crmWriteHistory(uid, customerId, { type: 'plan_updated', note: histNote }, adminUid || uid),
+        isNewAcquisition
+          ? _billingWriteRecord(uid, customerId, 'new_plan',
+              { planId: sub.planId, planName: sub.planName, price, totalCredits: sub.totalCredits, startDate, expiresAt },
+              adminUid || uid)
+          : Promise.resolve(),
+      ]);
     });
 }
 
@@ -1021,36 +1215,61 @@ function useCredit(uid, customerId, adminUid) {
 /**
  * Reseta o ciclo: usedCredits → 0 e avança nextBillingDate +30 dias.
  */
+/**
+ * Renova o plano: reseta créditos, avança expiresAt conforme durationDays e registra venda.
+ */
 function planResetCycle(uid, customerId, adminUid) {
   const c = (typeof disparoContacts !== 'undefined' ? disparoContacts : [])
     .find(x => x.id === customerId);
   if (!c || !c.subscription) return Promise.reject('sem plano');
 
-  const sub         = c.subscription;
-  const now         = new Date();
-  const nextDate    = sub.nextBillingDate instanceof Date && sub.nextBillingDate > now
-    ? new Date(sub.nextBillingDate.getTime() + 30 * 86400000)
-    : new Date(now.getTime() + 30 * 86400000);
+  const sub      = c.subscription;
+  const now      = new Date();
+  const duration = sub.durationDays || 30;
+  const nextDate = new Date(now.getTime() + duration * 86400000);
+  const price    = sub.price || 0;
+
+  const patch = {
+    'subscription.usedCredits':     0,
+    'subscription.status':          'active',
+    'subscription.startDate':       firebase.firestore.Timestamp.fromDate(now),
+    'subscription.expiresAt':       firebase.firestore.Timestamp.fromDate(nextDate),
+    'subscription.nextBillingDate': firebase.firestore.Timestamp.fromDate(nextDate),
+    updatedBy: adminUid || uid,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+  };
+
+  if (price > 0) {
+    patch.totalSpent       = (c.totalSpent    || 0) + price;
+    patch.purchaseCount    = (c.purchaseCount || 0) + 1;
+    patch.lastPurchaseDate = firebase.firestore.Timestamp.fromDate(now);
+  }
 
   return db.collection('users').doc(uid).collection('customers').doc(customerId)
-    .update({
-      'subscription.usedCredits':    0,
-      'subscription.status':         'active',
-      'subscription.nextBillingDate': firebase.firestore.Timestamp.fromDate(nextDate),
-      updatedBy: adminUid || uid,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    })
+    .update(patch)
     .then(() => {
-      sub.usedCredits    = 0;
-      sub.status         = 'active';
+      sub.usedCredits     = 0;
+      sub.status          = 'active';
+      sub.startDate       = now;
+      sub.expiresAt       = nextDate;
       sub.nextBillingDate = nextDate;
-      if (typeof clientesRenderTable === 'function') clientesRenderTable();
+      if (price > 0) {
+        c.totalSpent    = (c.totalSpent    || 0) + price;
+        c.purchaseCount = (c.purchaseCount || 0) + 1;
+        c.lastPurchaseDate = now;
+      }
+      if (typeof clientesRenderTable       === 'function') clientesRenderTable();
       if (typeof planRenderBillingDashboard === 'function') planRenderBillingDashboard();
 
-      return crmWriteHistory(uid, customerId, {
-        type: 'cycle_reset',
-        note: `Ciclo resetado. Próxima cobrança: ${nextDate.toLocaleDateString('pt-BR')}`,
-      }, adminUid || uid);
+      return Promise.all([
+        crmWriteHistory(uid, customerId, {
+          type: 'cycle_reset',
+          note: `Renovado: ${sub.planName} | ${now.toLocaleDateString('pt-BR')} → ${nextDate.toLocaleDateString('pt-BR')} | R$ ${price}`,
+        }, adminUid || uid),
+        _billingWriteRecord(uid, customerId, 'renewal',
+          { planId: sub.planId || '', planName: sub.planName, price, totalCredits: sub.totalCredits, startDate: now, expiresAt: nextDate },
+          adminUid || uid),
+      ]);
     });
 }
 
@@ -1064,12 +1283,53 @@ function planGetNearBilling(daysAhead) {
   return (typeof disparoContacts !== 'undefined' ? disparoContacts : [])
     .filter(c => {
       const sub = c.subscription;
-      if (!sub || sub.status === 'canceled') return false;
+      if (!sub || sub.status === 'canceled' || sub.status === 'expired') return false;
       const bd = sub.nextBillingDate;
       if (!(bd instanceof Date)) return false;
       return bd.getTime() >= now && bd.getTime() <= limit;
     })
     .sort((a, b) => a.subscription.nextBillingDate - b.subscription.nextBillingDate);
+}
+
+/**
+ * Retorna clientes cujo plano expira nos próximos {daysAhead} dias (ou já expirou).
+ */
+function planGetExpiringSoon(daysAhead) {
+  daysAhead = daysAhead || 7;
+  const now   = Date.now();
+  const limit = now + daysAhead * 86400000;
+  return (typeof disparoContacts !== 'undefined' ? disparoContacts : [])
+    .filter(c => {
+      const sub = c.subscription;
+      if (!sub || sub.status === 'canceled') return false;
+      const exp = sub.expiresAt;
+      if (!(exp instanceof Date)) return false;
+      return exp.getTime() <= limit;
+    })
+    .sort((a, b) => a.subscription.expiresAt - b.subscription.expiresAt);
+}
+
+/**
+ * Verifica planos expirados: atualiza status em memória e persiste no Firestore.
+ */
+function planCheckExpiredLocally() {
+  const now = new Date();
+  const uid = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.uid : null;
+  (typeof disparoContacts !== 'undefined' ? disparoContacts : []).forEach(c => {
+    const sub = c.subscription;
+    if (!sub || sub.status === 'canceled' || sub.status === 'expired') return;
+    if (sub.expiresAt instanceof Date && sub.expiresAt < now) {
+      sub.status = 'expired';
+      if (uid) {
+        db.collection('users').doc(uid).collection('customers').doc(c.id)
+          .update({
+            'subscription.status': 'expired',
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          })
+          .catch(() => {});
+      }
+    }
+  });
 }
 
 /**
@@ -1113,4 +1373,39 @@ function planRenderBillingDashboard() {
           </div>`;
       }).join('')}
     </div>`;
+
+  /* Seção de planos expirando */
+  const expiring = planGetExpiringSoon(7);
+  if (expiring.length > 0) {
+    const esc2 = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const fmtBRL2 = v => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    wrap.innerHTML += `
+      <div class="billing-dash-section-title" style="margin-top:14px;">
+        <i class="ph ph-clock"></i> Planos expirando em 7 dias
+        <span class="billing-dash-count">${expiring.length}</span>
+      </div>
+      <div class="billing-dash-list">
+        ${expiring.map(c => {
+          const sub  = c.subscription;
+          const exp  = sub.expiresAt;
+          const now2 = new Date();
+          const isExpired = exp < now2;
+          const diff = Math.ceil((exp.getTime() - now2.getTime()) / 86400000);
+          const diffLbl = isExpired ? 'Expirado' : diff === 0 ? 'Hoje' : diff === 1 ? 'Amanhã' : `Em ${diff}d`;
+          return `
+            <div class="billing-dash-card ${isExpired ? 'billing-dash-card--expired' : 'billing-dash-card--expiring'}">
+              <div class="billing-dash-info">
+                <span class="billing-dash-name">${esc2(c.name)}</span>
+                <span class="billing-dash-plan">${esc2(sub.planName)} · ${fmtBRL2(sub.price)}</span>
+              </div>
+              <div class="billing-dash-right">
+                <span class="billing-dash-date ${isExpired ? 'billing-dash-date--today' : ''}">${diffLbl} (${exp.toLocaleDateString('pt-BR')})</span>
+                <button class="billing-dash-btn" onclick="planResetCycleUI('${c.id}')" title="Renovar plano">
+                  <i class="ph ph-arrows-clockwise"></i> Renovar
+                </button>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }
 }
