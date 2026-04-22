@@ -94,6 +94,10 @@ function crmLoadCustomers(uid) {
           tags:             d.tags               || [],
           followUpDate:     d.followUpDate       || null,
           origin:           d.origin             || 'manual',
+          reuniaoDate:      d.reuniaoDate        || null,
+          reuniaoTime:      d.reuniaoTime        || null,
+          reuniaoBookingId: d.reuniaoBookingId   || null,
+          createdAt:        d.createdAt          ? d.createdAt.toDate()          : null,
           subscription:     d.subscription ? {
             planId:          d.subscription.planId          || '',
             planName:        d.subscription.planName        || '',

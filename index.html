@@ -33,6 +33,10 @@
     </div>
 
     <nav class="sidebar-nav">
+      <a href="#" class="nav-item" data-tool="dashboard" onclick="loadTool('dashboard', this)">
+        <i class="ph ph-chart-pie"></i>
+        <span>Dashboard</span>
+      </a>
       <a href="#" class="nav-item active" data-tool="crm" onclick="loadTool('crm', this)">
         <i class="ph ph-kanban"></i>
         <span>CRM & Leads</span>
@@ -1077,6 +1081,27 @@
               <div class="crm-col-body" id="col-contato"></div>
             </div>
 
+            <div class="crm-col" data-stage="negociacao">
+              <div class="crm-col-header">
+                <div><span class="crm-badge crm-badge--negociacao">Em Negociação</span></div>
+                <span class="crm-col-count" id="count-negociacao">0</span>
+              </div>
+              <div class="crm-col-body" id="col-negociacao"></div>
+            </div>
+
+            <div class="crm-col crm-col--reuniao" data-stage="reuniao">
+              <div class="crm-col-header">
+                <div>
+                  <span class="crm-badge crm-badge--reuniao">
+                    <i class="ph ph-calendar-check"></i> Reunião Agendada
+                  </span>
+                  <div class="crm-col-subtitle crm-col-subtitle--reuniao">Não vira cliente</div>
+                </div>
+                <span class="crm-col-count" id="count-reuniao">0</span>
+              </div>
+              <div class="crm-col-body" id="col-reuniao"></div>
+            </div>
+
             <div class="crm-col" data-stage="orcamento">
               <div class="crm-col-header">
                 <div><span class="crm-badge crm-badge--orcamento">Orçamento</span></div>
@@ -1128,6 +1153,14 @@
               <i class="ph ph-trophy"></i>
               <span>Este lead será <strong>promovido a Cliente</strong> automaticamente.</span>
             </div>
+            <!-- Aviso: só aparece quando destino = reuniao -->
+            <div class="crm-transition-reuniao-alert" id="crm-transition-reuniao-alert" hidden>
+              <i class="ph ph-calendar-check"></i>
+              <span>Reunião registrada. <strong>Não converte em cliente</strong> — crie o agendamento separadamente.</span>
+              <button class="crm-reuniao-alert-link" onclick="crmCloseTransitionModal(); loadTool('sched', null);">
+                Ir à Agenda <i class="ph ph-arrow-right"></i>
+              </button>
+            </div>
             <div class="form-field">
               <label>Resumo / Nota <span class="label-unit">opcional</span></label>
               <textarea id="crm-transition-note" rows="3" placeholder="Ex: Cliente pediu desconto de 5%..."></textarea>
@@ -1137,6 +1170,86 @@
               <button class="btn-calc" id="crm-transition-confirm-btn"
                 style="margin-top:0;width:auto;padding:10px 20px;" onclick="crmConfirmTransition()">
                 <i class="ph ph-check"></i> Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Follow-up no Disparo WhatsApp -->
+        <div class="disparo-modal-overlay" id="crm-followup-modal" onclick="crmCloseFollowUpModal(event)">
+          <div class="disparo-modal">
+            <h3 class="disparo-modal-title">
+              <i class="ph ph-calendar-check" style="color:#0ea5e9;"></i> Agendar Follow-up
+            </h3>
+
+            <!-- Lead selecionado -->
+            <div class="crm-reunion-lead-info" id="crm-followup-lead-name"></div>
+
+            <!-- Aviso de integração com o Disparo -->
+            <div class="crm-followup-info-alert">
+              <i class="ph ph-whatsapp-logo"></i>
+              <span>O follow-up será agendado no <strong>Disparo WhatsApp</strong> e aparecerá nos filtros <em>Hoje</em> e <em>Atrasados</em> quando vencer.</span>
+            </div>
+
+            <div class="form-field">
+              <label>Data do Follow-up</label>
+              <input type="date" id="crm-followup-date" class="form-control" />
+            </div>
+
+            <div class="form-field" style="margin-top:12px;">
+              <label>Contexto / Observações <span class="label-unit">opcional</span></label>
+              <textarea id="crm-followup-notes" rows="2"
+                placeholder="Ex: Ligar para confirmar interesse na proposta..."></textarea>
+            </div>
+
+            <p id="crm-followup-error" class="crm-reunion-error hidden"></p>
+
+            <div class="disparo-modal-footer">
+              <button class="btn-reset" onclick="crmCloseFollowUpModal()">Cancelar</button>
+              <button class="btn-calc" style="margin-top:0;width:auto;padding:10px 20px;" onclick="crmSaveFollowUp()">
+                <i class="ph ph-calendar-check"></i> Agendar Follow-up
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Agendamento de Reunião -->
+        <div class="disparo-modal-overlay" id="crm-reunion-modal" onclick="crmCloseReunionModal(event)">
+          <div class="disparo-modal">
+            <h3 class="disparo-modal-title">
+              <i class="ph ph-calendar-check"></i> Agendar Reunião
+            </h3>
+
+            <!-- Lead selecionado -->
+            <div class="crm-reunion-lead-info" id="crm-reunion-lead-name"></div>
+
+            <!-- Alerta informativo -->
+            <div class="crm-transition-reuniao-alert" style="margin-bottom:16px;">
+              <i class="ph ph-info"></i>
+              <span>Esta reunião <strong>não converte</strong> o lead em cliente. O agendamento será criado na sua Agenda automaticamente.</span>
+            </div>
+
+            <div class="form-field">
+              <label>Data da Reunião</label>
+              <input type="date" id="crm-reunion-date" class="form-control" />
+            </div>
+
+            <div class="form-field" style="margin-top:12px;">
+              <label>Horário</label>
+              <select id="crm-reunion-time" class="form-control"></select>
+            </div>
+
+            <div class="form-field" style="margin-top:12px;">
+              <label>Observações <span class="label-unit">opcional</span></label>
+              <textarea id="crm-reunion-notes" rows="2" placeholder="Ex: Apresentar proposta de contrato..."></textarea>
+            </div>
+
+            <p id="crm-reunion-error" class="crm-reunion-error hidden"></p>
+
+            <div class="disparo-modal-footer">
+              <button class="btn-reset" onclick="crmCloseReunionModal()">Cancelar</button>
+              <button class="btn-calc" style="margin-top:0;width:auto;padding:10px 20px;" onclick="crmSaveReunion()">
+                <i class="ph ph-calendar-check"></i> Agendar Reunião
               </button>
             </div>
           </div>
@@ -1546,6 +1659,35 @@
         </div>
       </div><!-- /tool-admin -->
 
+      <!-- ══════════════════ TOOL: DASHBOARD ══════════════════ -->
+      <div class="tool-view hidden" id="tool-dashboard">
+
+        <div class="tool-header">
+          <div class="tool-header-left">
+            <h1 class="tool-title">Dashboard</h1>
+            <nav class="breadcrumb-mini">
+              <a href="#">Início</a>
+              <i class="ph ph-caret-right"></i>
+              <span class="breadcrumb-current-mini">Visão Geral</span>
+            </nav>
+          </div>
+          <div class="tool-header-right">
+            <button class="dash-refresh-btn" onclick="dashboardRender()">
+              <i class="ph ph-arrows-clockwise"></i>
+              <span>Atualizar</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="tool-body dash-tool-body" id="dash-body">
+          <div class="dash-empty-state">
+            <i class="ph ph-chart-pie"></i>
+            <p>Carregando dados do dashboard…</p>
+          </div>
+        </div>
+
+      </div><!-- /tool-dashboard -->
+
       <!-- ══════════════════ PLACEHOLDER: EM BREVE ══════════════════ -->
       <div class="tool-view hidden" id="tool-coming-soon">
         <div class="tool-header">
@@ -1569,6 +1711,19 @@
       </div>
 
     </main>
+
+    <!-- ══ MODAL DASHBOARD: Detalhes do Card ══ -->
+    <div class="disparo-modal-overlay" id="dash-detail-modal" onclick="dashDetailClose(event)">
+      <div class="dash-detail-card">
+        <div class="dash-detail-header">
+          <h3 class="dash-detail-title" id="dash-detail-title">Detalhes</h3>
+          <button class="dash-detail-close" onclick="document.getElementById('dash-detail-modal').classList.remove('open')">
+            <i class="ph ph-x"></i>
+          </button>
+        </div>
+        <div class="dash-detail-body" id="dash-detail-body"></div>
+      </div>
+    </div>
 
     <!-- ══ MODAL GLOBAL: Plano de Assinatura ══ -->
     <div class="disparo-modal-overlay" id="plan-modal-ov" onclick="if(event.target===this) planModalClose()">
@@ -1715,6 +1870,16 @@
 
         <!-- Dados de contato -->
         <div class="crm-profile-details" id="crm-profile-details"></div>
+
+        <!-- Ações rápidas -->
+        <div class="crm-profile-actions">
+          <button class="crm-profile-action-btn crm-profile-action-btn--sched" onclick="crmBookFromClient()">
+            <i class="ph ph-calendar-plus"></i> Criar Agendamento
+          </button>
+          <button class="crm-profile-action-btn" onclick="crmCloseHistoryModal(); loadTool('sched', document.querySelector('.nav-item[onclick*=\'sched\']'))">
+            <i class="ph ph-calendar-blank"></i> Ver Agenda
+          </button>
+        </div>
 
         <!-- Histórico -->
         <div class="crm-profile-section-title">

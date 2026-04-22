@@ -114,6 +114,9 @@ function loadTool(toolId, linkEl) {
     if (typeof clientesRenderTable       === 'function') clientesRenderTable();
     if (typeof planRenderBillingDashboard === 'function') planRenderBillingDashboard();
   }
+  if (toolId === 'dashboard') {
+    dashboardRender();
+  }
 
   if (window.innerWidth <= 768) closeSidebar();
 }
@@ -893,9 +896,17 @@ function disparoSelectContact(id) {
             <span class="disparo-chip">📱 +${c.phone}</span>
           </div>
         </div>
-        <button class="disparo-btn-edit-contact" onclick="disparoOpenEditModal('${sid}')" title="Editar contato">
-          <i class="ph ph-pencil-simple"></i> Editar
-        </button>
+        <div class="disparo-hero-actions">
+          <button class="disparo-btn-edit-contact" onclick="disparoOpenEditModal('${sid}')" title="Editar contato">
+            <i class="ph ph-pencil-simple"></i> Editar
+          </button>
+          <button class="disparo-btn-action-sm disparo-btn-action-sm--sched" onclick="disparoBookFromContact('${sid}')" title="Criar agendamento para este contato">
+            <i class="ph ph-calendar-plus"></i> Agendar
+          </button>
+          <button class="disparo-btn-action-sm" onclick="crmOpenHistoryModal('${sid}')" title="Ver histórico e perfil">
+            <i class="ph ph-clock-counter-clockwise"></i> Histórico
+          </button>
+        </div>
       </div>
 
       <div class="card disparo-org-card">
@@ -919,6 +930,9 @@ function disparoSelectContact(id) {
               onchange="disparoSaveFollowUp('${sid}')">
             ${c.followUpDate ? `<button class="disparo-followup-clear" onclick="disparoClearFollowUp('${sid}')" title="Remover follow-up"><i class="ph ph-x"></i></button>` : ''}
             ${c.followUpDate ? `<span class="disparo-followup-status disparo-followup-status--${_getFollowUpStatus(c.followUpDate) || 'upcoming'}">${_followUpLabel(c.followUpDate)}</span>` : ''}
+            ${c.followUpDate && ['today','overdue'].includes(_getFollowUpStatus(c.followUpDate))
+              ? `<a class="disparo-followup-wa" href="https://wa.me/${(c.phone||'').replace(/\D/g,'')}" target="_blank" rel="noopener" title="Abrir no WhatsApp agora"><i class="ph ph-whatsapp-logo"></i> Contatar</a>`
+              : ''}
           </div>
         </div>
       </div>
@@ -1512,9 +1526,37 @@ function disparoSaveFollowUp(id) {
     }
   }
 
+  /* Atualiza o botão WhatsApp de contato rápido no follow-up */
+  if (row) {
+    row.querySelectorAll('.disparo-followup-wa').forEach(el => el.remove());
+    if (c.followUpDate && ['today', 'overdue'].includes(_getFollowUpStatus(c.followUpDate))) {
+      const waBtn = document.createElement('a');
+      waBtn.className = 'disparo-followup-wa';
+      waBtn.href = `https://wa.me/${(c.phone || '').replace(/\D/g, '')}`;
+      waBtn.target = '_blank';
+      waBtn.rel = 'noopener';
+      waBtn.title = 'Abrir no WhatsApp agora';
+      waBtn.innerHTML = '<i class="ph ph-whatsapp-logo"></i> Contatar';
+      row.appendChild(waBtn);
+    }
+  }
+
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
-      .update({ followUpDate: c.followUpDate, updatedBy: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => { });
+    const uid = currentUser.uid;
+
+    db.collection('users').doc(uid).collection('customers').doc(String(id))
+      .update({ followUpDate: c.followUpDate, updatedBy: uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => { });
+
+    /* Grava no histórico do CRM */
+    if (typeof crmWriteHistory === 'function') {
+      const _fmtD = d => { const [y, m, day] = d.split('-'); return `${day}/${m}/${y}`; };
+      crmWriteHistory(uid, String(id), {
+        type: 'followup_scheduled',
+        note: c.followUpDate
+          ? `Follow-up agendado para ${_fmtD(c.followUpDate)}`
+          : 'Follow-up removido',
+      }, uid);
+    }
   }
 
   disparoFilter();
@@ -1525,6 +1567,25 @@ function disparoClearFollowUp(id) {
   const input = document.getElementById('disparo-followup-' + id);
   if (input) input.value = '';
   disparoSaveFollowUp(id);
+}
+
+/* Agendar a partir do painel de contato do disparo */
+function disparoBookFromContact(id) {
+  const c = disparoContacts.find(x => String(x.id) === String(id));
+  if (!c) return;
+
+  const schedNav = document.querySelector('.nav-item[onclick*="sched"]');
+  loadTool('sched', schedNav);
+
+  setTimeout(() => {
+    schedOpenBookingModal(_schedTodayStr());
+    setTimeout(() => {
+      const nameEl  = document.getElementById('sched-bk-name');
+      const phoneEl = document.getElementById('sched-bk-phone');
+      if (nameEl)  nameEl.value  = c.name  || '';
+      if (phoneEl) phoneEl.value = c.phone || '';
+    }, 60);
+  }, 120);
 }
 
 function disparoToggleFUFilter(type) {
@@ -2149,7 +2210,7 @@ let crmDraggedCard = null;
 let crmPendingLeadId = null;
 let crmPendingStage = null;
 
-const CRM_STAGES = ['novo', 'contato', 'orcamento', 'followup', 'fechado', 'perdido'];
+const CRM_STAGES = ['novo', 'contato', 'negociacao', 'reuniao', 'orcamento', 'followup', 'fechado', 'perdido'];
 
 function renderCRM() {
   /* Reseta os contadores e as colunas */
@@ -2215,18 +2276,28 @@ function renderCRM() {
           </button>
         </div>
       </div>
-      
+
+      ${stage === 'reuniao' ? `
+        <div class="crm-card-reunion-bar">
+          <i class="ph ph-calendar-check"></i>
+          <span>${c.reuniaoDate ? _schedFmt(c.reuniaoDate) + (c.reuniaoTime ? ' às ' + c.reuniaoTime : '') : 'Sem data definida'}</span>
+          <button class="crm-btn-goto-sched" onclick="crmGoToMeetingDate('${c.reuniaoDate || ''}')" title="Ir para esta data na Agenda">
+            Ver Agenda <i class="ph ph-arrow-right"></i>
+          </button>
+        </div>
+      ` : ''}
+
       <!-- Dropdown Mobile Fallback -->
       <select class="crm-stage-select" onchange="crmHandleSelectMove('${c.id}', this.value)">
         <option value="novo" ${stage === 'novo' ? 'selected' : ''}>Novo Lead</option>
         <option value="contato" ${stage === 'contato' ? 'selected' : ''}>1º Contato</option>
+        <option value="negociacao" ${stage === 'negociacao' ? 'selected' : ''}>Em Negociação</option>
+        <option value="reuniao" ${stage === 'reuniao' ? 'selected' : ''}>Reunião Agendada</option>
         <option value="orcamento" ${stage === 'orcamento' ? 'selected' : ''}>Orçamento Enviado</option>
         <option value="followup" ${stage === 'followup' ? 'selected' : ''}>Follow Up</option>
         <option value="fechado" ${stage === 'fechado' ? 'selected' : ''}>Fechado</option>
         <option value="perdido" ${stage === 'perdido' ? 'selected' : ''}>Não Convertido</option>
       </select>
-
-
     `;
 
     col.appendChild(card);
@@ -2268,37 +2339,51 @@ function crmHandleSelectMove(leadId, targetStage) {
 }
 
 const CRM_STAGE_LABELS = {
-  'novo': 'Novo Lead',
-  'contato': '1º Contato',
-  'orcamento': 'Orçamento Enviado',
-  'followup': 'Follow Up',
-  'fechado': 'Negócio Fechado',
-  'perdido': 'Não Convertido'
+  'novo':       'Novo Lead',
+  'contato':    '1º Contato',
+  'negociacao': 'Em Negociação',
+  'reuniao':    'Reunião Agendada',
+  'orcamento':  'Orçamento Enviado',
+  'followup':   'Follow Up',
+  'fechado':    'Negócio Fechado',
+  'perdido':    'Não Convertido'
 };
 
 function crmOpenTransitionModal(leadId, targetStage) {
   const c = disparoContacts.find(x => String(x.id) === String(leadId));
   if (!c || c.stage === targetStage) return; /* Mesma coluna */
 
+  /* Reunião tem modal dedicado com campos de data/hora */
+  if (targetStage === 'reuniao') {
+    crmOpenReunionModal(leadId);
+    return;
+  }
+
+  /* Follow-up tem modal dedicado que agenda no Disparo WhatsApp */
+  if (targetStage === 'followup') {
+    crmOpenFollowUpModal(leadId);
+    return;
+  }
+
   crmPendingLeadId = leadId;
   crmPendingStage = targetStage;
 
   const currentLabel = CRM_STAGE_LABELS[c.stage] || 'Desconhecido';
-  const targetLabel = CRM_STAGE_LABELS[targetStage] || 'Desconhecido';
-  const isFechado = targetStage === 'fechado';
+  const targetLabel  = CRM_STAGE_LABELS[targetStage] || 'Desconhecido';
+  const isFechado    = targetStage === 'fechado';
 
-  /* Título e descrição */
   const titleEl = document.getElementById('crm-transition-title');
   if (titleEl) titleEl.textContent = isFechado ? 'Converter em Cliente' : 'Anotação da Mudança';
 
   document.getElementById('crm-transition-desc').innerHTML =
     `Movendo <strong>${c.name}</strong><br>De: <span class="badge-stage">${currentLabel}</span> → Para: <span class="badge-stage">${targetLabel}</span>`;
 
-  /* Aviso de promoção */
   const alertEl = document.getElementById('crm-transition-client-alert');
   if (alertEl) alertEl.hidden = !isFechado;
 
-  /* Botão de confirmar */
+  const reuniaoAlertEl = document.getElementById('crm-transition-reuniao-alert');
+  if (reuniaoAlertEl) reuniaoAlertEl.hidden = true;
+
   const btnEl = document.getElementById('crm-transition-confirm-btn');
   if (btnEl) {
     btnEl.innerHTML = isFechado
@@ -2316,9 +2401,285 @@ function crmCloseTransitionModal(e) {
   document.getElementById('crm-transition-modal').classList.remove('open');
   crmPendingLeadId = null;
   crmPendingStage = null;
-
-  /* Retorna cards ao visual orginal pois o cancelamento os deixa no lugar visual onde caíram */
   renderCRM();
+}
+
+/* ─── Modal Dedicado: Follow-up no Disparo WhatsApp ─────────── */
+
+function crmOpenFollowUpModal(leadId) {
+  const c = disparoContacts.find(x => String(x.id) === String(leadId));
+  if (!c) return;
+
+  crmPendingLeadId = leadId;
+  crmPendingStage  = 'followup';
+
+  /* Nome do lead */
+  const nameEl = document.getElementById('crm-followup-lead-name');
+  if (nameEl) nameEl.textContent = c.name + (c.company && c.company !== '—' ? ' · ' + c.company : '');
+
+  /* Data padrão: próximo dia útil (amanhã) */
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const dateEl = document.getElementById('crm-followup-date');
+  if (dateEl) dateEl.value = c.followUpDate || _schedDateStr(tomorrow);
+
+  /* Limpa notas e erro */
+  const notesEl = document.getElementById('crm-followup-notes');
+  if (notesEl) notesEl.value = '';
+  const errEl = document.getElementById('crm-followup-error');
+  if (errEl) { errEl.textContent = ''; errEl.hidden = true; }
+
+  document.getElementById('crm-followup-modal').classList.add('open');
+  if (dateEl) dateEl.focus();
+}
+
+function crmCloseFollowUpModal(e) {
+  if (e && e.target.id !== 'crm-followup-modal') return;
+  document.getElementById('crm-followup-modal').classList.remove('open');
+  crmPendingLeadId = null;
+  crmPendingStage  = null;
+  renderCRM();
+}
+
+function crmSaveFollowUp() {
+  const leadId = crmPendingLeadId;
+  if (!leadId) return;
+
+  const c = disparoContacts.find(x => String(x.id) === String(leadId));
+  if (!c) return;
+
+  const date  = document.getElementById('crm-followup-date').value;
+  const notes = document.getElementById('crm-followup-notes').value.trim();
+
+  /* Validação */
+  const errEl = document.getElementById('crm-followup-error');
+  if (!date) {
+    if (errEl) { errEl.textContent = 'Selecione uma data para o follow-up.'; errEl.hidden = false; }
+    return;
+  }
+  if (errEl) { errEl.textContent = ''; errEl.hidden = true; }
+
+  const btn = document.querySelector('#crm-followup-modal .btn-calc');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph ph-circle-notch auth-spin"></i> Salvando...'; }
+
+  const oldStage     = c.stage || 'novo';
+  const _fmtD        = d => { const [y, m, day] = d.split('-'); return `${day}/${m}/${y}`; };
+  const noteText     = `Follow-up agendado para ${_fmtD(date)}${notes ? '\n' + notes : ''}`;
+
+  /* Atualiza estado local */
+  c.stage        = 'followup';
+  c.followUpDate = date;
+
+  const uid = typeof currentUser !== 'undefined' && currentUser ? currentUser.uid : null;
+
+  if (uid) {
+    /* 1. Persiste stage + followUpDate no Firestore */
+    db.collection('users').doc(uid).collection('customers').doc(String(c.id))
+      .update({
+        stage:        'followup',
+        followUpDate: date,
+        updatedBy:    uid,
+        updatedAt:    firebase.firestore.FieldValue.serverTimestamp(),
+      })
+      .catch(err => console.error('[CRM] Erro ao salvar follow-up:', err));
+
+    /* 2. Grava no histórico do CRM */
+    if (typeof crmWriteHistory === 'function') {
+      crmWriteHistory(uid, String(c.id), {
+        type:        'followup_scheduled',
+        oldStage,
+        targetStage: 'followup',
+        note:        noteText,
+      }, uid);
+    }
+  }
+
+  /* 3. Sincroniza o input de follow-up no painel disparo, se estiver aberto */
+  const fuInput = document.getElementById('disparo-followup-' + String(c.id));
+  if (fuInput) {
+    fuInput.value = date;
+    /* Dispara o mesmo update visual que disparoSaveFollowUp faz */
+    disparoSaveFollowUp(String(c.id));
+  }
+
+  /* 4. Se o contato está selecionado no disparo, re-renderiza o painel */
+  if (String(disparoSel) === String(c.id)) {
+    disparoSelectContact(String(c.id));
+  }
+
+  document.getElementById('crm-followup-modal').classList.remove('open');
+  crmPendingLeadId = null;
+  crmPendingStage  = null;
+
+  renderCRM();
+  disparoFilter();
+
+  if (typeof disparoShowToast === 'function') disparoShowToast('Follow-up agendado no WhatsApp!');
+
+  if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-calendar-check"></i> Agendar Follow-up'; }
+}
+
+/* ─── Modal Dedicado: Agendar Reunião ─────────────────────────── */
+
+function crmOpenReunionModal(leadId) {
+  const c = disparoContacts.find(x => String(x.id) === String(leadId));
+  if (!c) return;
+
+  crmPendingLeadId = leadId;
+  crmPendingStage  = 'reuniao';
+
+  /* Cabeçalho com nome do lead */
+  const nameEl = document.getElementById('crm-reunion-lead-name');
+  if (nameEl) nameEl.textContent = c.name + (c.company && c.company !== '—' ? ' · ' + c.company : '');
+
+  /* Data padrão: hoje */
+  const dateEl = document.getElementById('crm-reunion-date');
+  if (dateEl) dateEl.value = _schedTodayStr();
+
+  /* Popula horários a partir do schedConfig */
+  const timeEl = document.getElementById('crm-reunion-time');
+  if (timeEl) {
+    const times = (schedConfig && schedConfig.defaultTimes && schedConfig.defaultTimes.length)
+      ? schedConfig.defaultTimes
+      : ['08:00','09:00','10:00','11:00','14:00','15:00','16:00','17:00'];
+    timeEl.innerHTML = '<option value="">Selecione o horário...</option>' +
+      times.map(t => `<option value="${t}">${t}</option>`).join('');
+  }
+
+  /* Limpa campos e erro */
+  const notesEl = document.getElementById('crm-reunion-notes');
+  if (notesEl) notesEl.value = '';
+  const errEl = document.getElementById('crm-reunion-error');
+  if (errEl) { errEl.textContent = ''; errEl.hidden = true; }
+
+  document.getElementById('crm-reunion-modal').classList.add('open');
+  if (dateEl) dateEl.focus();
+}
+
+function crmCloseReunionModal(e) {
+  if (e && e.target.id !== 'crm-reunion-modal') return;
+  document.getElementById('crm-reunion-modal').classList.remove('open');
+  crmPendingLeadId = null;
+  crmPendingStage  = null;
+  renderCRM();
+}
+
+function crmSaveReunion() {
+  const leadId = crmPendingLeadId;
+  if (!leadId) return;
+
+  const c = disparoContacts.find(x => String(x.id) === String(leadId));
+  if (!c) return;
+
+  const date  = document.getElementById('crm-reunion-date').value;
+  const time  = document.getElementById('crm-reunion-time').value;
+  const notes = document.getElementById('crm-reunion-notes').value.trim();
+
+  /* Validação */
+  const errEl = document.getElementById('crm-reunion-error');
+  if (!date || !time) {
+    if (errEl) { errEl.textContent = 'Data e horário são obrigatórios.'; errEl.hidden = false; }
+    return;
+  }
+  if (errEl) { errEl.textContent = ''; errEl.hidden = true; }
+
+  const btn = document.querySelector('#crm-reunion-modal .btn-calc');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ph ph-circle-notch auth-spin"></i> Agendando...'; }
+
+  const oldStage   = c.stage || 'novo';
+  const noteText   = `Reunião agendada para ${_schedFmt(date)} às ${time}${notes ? '\n' + notes : ''}`;
+
+  /* Atualiza estado local imediatamente */
+  c.stage        = 'reuniao';
+  c.reuniaoDate  = date;
+  c.reuniaoTime  = time;
+
+  const uid = typeof currentUser !== 'undefined' && currentUser ? currentUser.uid : null;
+
+  if (uid) {
+    /* 1. Cria o agendamento em sched_bookings */
+    const bookingPayload = {
+      clientName: c.name,
+      phone:      c.phone || '',
+      date,
+      time,
+      notes:      notes || 'Reunião comercial',
+      status:     'pending',
+      services:   [],
+      source:     'crm_reuniao',
+      customerId: String(c.id),
+      createdAt:  firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt:  firebase.firestore.FieldValue.serverTimestamp(),
+    };
+
+    db.collection('users').doc(uid).collection('sched_bookings')
+      .add(bookingPayload)
+      .then(docRef => {
+        const bookingId = docRef.id;
+        c.reuniaoBookingId = bookingId;
+
+        /* Adiciona à lista local de agendamentos */
+        schedBookings.push({ id: bookingId, ...bookingPayload });
+
+        /* 2. Persiste todos os campos no documento do cliente */
+        db.collection('users').doc(uid).collection('customers').doc(String(c.id))
+          .update({
+            stage:            'reuniao',
+            reuniaoDate:      date,
+            reuniaoTime:      time,
+            reuniaoBookingId: bookingId,
+            updatedBy:        uid,
+            updatedAt:        firebase.firestore.FieldValue.serverTimestamp(),
+          })
+          .catch(err => console.error('[CRM] Erro ao salvar reuniao no customer:', err));
+
+        /* 3. Grava no histórico do CRM */
+        if (typeof crmWriteHistory === 'function') {
+          crmWriteHistory(uid, String(c.id), {
+            type:        'meeting_scheduled',
+            oldStage,
+            targetStage: 'reuniao',
+            note:        noteText,
+          }, uid);
+        }
+
+        /* Re-renderiza board e calendário */
+        schedRenderCalendar();
+        renderCRM();
+
+        if (typeof disparoShowToast === 'function') disparoShowToast('Reunião agendada com sucesso!');
+      })
+      .catch(err => {
+        console.error('[CRM] Erro ao criar booking de reunião:', err);
+        if (errEl) { errEl.textContent = 'Erro ao salvar. Tente novamente.'; errEl.hidden = false; }
+      })
+      .finally(() => {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-calendar-check"></i> Agendar Reunião'; }
+      });
+  }
+
+  document.getElementById('crm-reunion-modal').classList.remove('open');
+  crmPendingLeadId = null;
+  crmPendingStage  = null;
+  renderCRM();
+}
+
+/* Navega para o dia exato da reunião na agenda */
+function crmGoToMeetingDate(dateStr) {
+  if (!dateStr) {
+    loadTool('sched', null);
+    return;
+  }
+  const parts = dateStr.split('-');
+  _schedCalYear  = parseInt(parts[0]);
+  _schedCalMonth = parseInt(parts[1]) - 1;
+
+  /* Tenta marcar o nav-item de sched como ativo */
+  const schedNav = document.querySelector('.nav-item[onclick*="sched"]');
+  loadTool('sched', schedNav);
+
+  /* Aguarda a ferramenta renderizar e então seleciona a data */
+  setTimeout(() => schedSelectDate(dateStr), 80);
 }
 
 function crmConfirmTransition() {
@@ -2350,7 +2711,8 @@ function crmConfirmTransition() {
       crmWriteHistory(uid, String(c.id), { oldStage, targetStage: crmPendingStage, note: noteText }, uid);
     }
 
-    /* 3. Se moveu para "fechado", promove a Cliente e abre modal de venda */
+    /* 3. Se moveu para "fechado", promove a Cliente e abre modal de venda
+          "reuniao" nunca promove a cliente — é só uma reunião de negociação */
     if (crmPendingStage === 'fechado' && typeof promoverParaCliente === 'function') {
       promoverParaCliente(uid, String(c.id), uid, { via: 'crm', note: noteText || 'via CRM (manual)' })
         .then(() => {
@@ -2609,10 +2971,15 @@ function crmPromoteConfirm() {
     });
 }
 
+/* ─── ID do perfil aberto no modal de histórico ──────────────── */
+let _crmHistoryLeadId = null;
+
 /* Mostrar Modal de Perfil + Histórico */
 function crmOpenHistoryModal(leadId) {
   const c = disparoContacts.find(x => String(x.id) === String(leadId));
   if (!c) return;
+
+  _crmHistoryLeadId = leadId;
 
   const fmtBRL = v => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const fmtDate = d => d instanceof Date ? d.toLocaleDateString('pt-BR') : '—';
@@ -2757,6 +3124,23 @@ function crmOpenHistoryModal(leadId) {
           ? `<div class="timeline-note">${h.note.replace(/\n/g, '<br>')}</div>`
           : '';
 
+      } else if (type === 'followup_scheduled') {
+        const isRemoved = (h.note || '').includes('removido');
+        icon = isRemoved ? 'ph-calendar-x' : 'ph-calendar-check';
+        title = isRemoved
+          ? `<strong style="color:var(--c-red);">Follow-up Removido</strong>`
+          : `<strong style="color:#f59e0b;">Follow-up Agendado</strong>`;
+        noteHtml = h.note
+          ? `<div class="timeline-note">${h.note.replace(/\n/g, '<br>')}</div>`
+          : '';
+
+      } else if (type === 'meeting_scheduled') {
+        icon = 'ph-calendar-check';
+        title = `<strong style="color:#4f46e5;">Reunião Agendada</strong>`;
+        noteHtml = h.note
+          ? `<div class="timeline-note">${h.note.replace(/\n/g, '<br>')}</div>`
+          : '';
+
       } else {
         /* stage_change — comportamento original */
         icon = 'ph-git-commit';
@@ -2793,6 +3177,35 @@ function crmOpenHistoryModal(leadId) {
 function crmCloseHistoryModal(e) {
   if (e && e.target.id !== 'crm-history-modal') return;
   document.getElementById('crm-history-modal').classList.remove('open');
+  _crmHistoryLeadId = null;
+}
+
+/* ─── Agendar a partir do perfil de um cliente/contato ──────── */
+function crmBookFromClient() {
+  const leadId = _crmHistoryLeadId;
+  if (!leadId) return;
+
+  const c = disparoContacts.find(x => String(x.id) === String(leadId));
+  if (!c) return;
+
+  /* Fecha o modal de perfil */
+  document.getElementById('crm-history-modal').classList.remove('open');
+  _crmHistoryLeadId = null;
+
+  /* Navega para a aba de Agendamentos */
+  const schedNav = document.querySelector('.nav-item[onclick*="sched"]');
+  loadTool('sched', schedNav);
+
+  /* Abre o modal de agendamento e pré-preenche os dados do cliente */
+  setTimeout(() => {
+    schedOpenBookingModal(_schedTodayStr());
+    setTimeout(() => {
+      const nameEl  = document.getElementById('sched-bk-name');
+      const phoneEl = document.getElementById('sched-bk-phone');
+      if (nameEl)  nameEl.value  = c.name || '';
+      if (phoneEl) phoneEl.value = c.phone || '';
+    }, 60);
+  }, 120);
 }
 
 /* Garante a primeira renderização do painel ao carregar se já existirem contatos */
@@ -4053,4 +4466,536 @@ function _saveManagedTenants(cb) {
     .update({ managedTenants, managedTenantUids })
     .then(() => { if (cb) cb(); })
     .catch(() => { if (cb) cb(); });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DASHBOARD — Visão Geral de Governança
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Estado do filtro ────────────────────────────────────────── */
+let _dashPeriod     = 'month';
+let _dashCustomFrom = '';
+let _dashCustomTo   = '';
+let _dashCache      = {};   /* arrays por key → abre no detail modal */
+
+/* ── Intervalo a partir do período selecionado ──────────────── */
+function _dashGetRange() {
+  const now = new Date();
+  let from, to;
+  switch (_dashPeriod) {
+    case 'last_month':
+      from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      to   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      break;
+    case '3months':
+      from = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      to   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      break;
+    case '6months':
+      from = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+      to   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      break;
+    case 'year':
+      from = new Date(now.getFullYear(), 0, 1);
+      to   = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+      break;
+    case 'custom':
+      from = _dashCustomFrom ? new Date(_dashCustomFrom + 'T00:00:00') : new Date(now.getFullYear(), now.getMonth(), 1);
+      to   = _dashCustomTo   ? new Date(_dashCustomTo   + 'T23:59:59') : new Date();
+      break;
+    default: /* month */
+      from = new Date(now.getFullYear(), now.getMonth(), 1);
+      to   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  }
+  return { from, to, fromTs: from.getTime(), toTs: to.getTime() };
+}
+
+function _dashPeriodLabel() {
+  const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const now = new Date();
+  switch (_dashPeriod) {
+    case 'month':      return `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+    case 'last_month': { const lm = new Date(now.getFullYear(), now.getMonth()-1,1); return `${MONTHS[lm.getMonth()]} ${lm.getFullYear()}`; }
+    case '3months':    return 'Últimos 3 meses';
+    case '6months':    return 'Últimos 6 meses';
+    case 'year':       return `Ano ${now.getFullYear()}`;
+    case 'custom': {
+      const f = _dashCustomFrom ? new Date(_dashCustomFrom+'T00:00:00').toLocaleDateString('pt-BR') : '?';
+      const t = _dashCustomTo   ? new Date(_dashCustomTo  +'T00:00:00').toLocaleDateString('pt-BR') : '?';
+      return `${f} – ${t}`;
+    }
+    default: return '';
+  }
+}
+
+function dashSetPeriod(p) {
+  _dashPeriod = p;
+  dashboardRender();
+}
+
+function dashApplyCustom() {
+  const f = document.getElementById('dash-custom-from');
+  const t = document.getElementById('dash-custom-to');
+  _dashCustomFrom = f ? f.value : '';
+  _dashCustomTo   = t ? t.value : '';
+  dashboardRender();
+}
+
+/* ── Modal de detalhes ──────────────────────────────────────── */
+function dashDetail(key) {
+  const data  = _dashCache[key];
+  const title = _dashCache[key + '_title'] || key;
+  if (!data || data.length === 0) return;
+
+  const modal  = document.getElementById('dash-detail-modal');
+  const mtitle = document.getElementById('dash-detail-title');
+  const mbody  = document.getElementById('dash-detail-body');
+  if (!modal || !mtitle || !mbody) return;
+
+  mtitle.textContent = `${title} (${data.length})`;
+
+  function _esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function _fmtDate(d) {
+    if (!d) return '—';
+    const dt = d instanceof Date ? d : new Date(d);
+    if (isNaN(dt)) return '—';
+    return dt.toLocaleDateString('pt-BR', { day:'2-digit', month:'short', year:'numeric' });
+  }
+  const STAGE = { novo:'Novo', contato:'Em Contato', negociacao:'Em Negociação', reuniao:'Reunião', orcamento:'Orçamento', followup:'Follow-up', fechado:'Fechado', perdido:'Perdido' };
+
+  mbody.innerHTML = data.map(item => {
+    /* Agendamento (tem clientName ou date sem name) */
+    if (item.clientName !== undefined || (item.date && item.stage === undefined)) {
+      return `
+        <div class="dash-detail-item">
+          <div class="dash-detail-avatar dash-detail-avatar--indigo">${(item.clientName||item.name||'?')[0].toUpperCase()}</div>
+          <div class="dash-detail-info">
+            <div class="dash-detail-name">${_esc(item.clientName || item.name || 'Cliente')}</div>
+            <div class="dash-detail-meta">${item.date || '—'}${item.time ? ' · ' + item.time : ''}</div>
+          </div>
+        </div>`;
+    }
+    /* Contato / Lead */
+    const initials = (item.name||'?').trim().split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase() || '?';
+    const since    = item.createdAt ? _fmtDate(item.createdAt) : (item.clientSince ? _fmtDate(item.clientSince) : null);
+    const extra    = [since ? 'Desde ' + since : null, item.stage ? STAGE[item.stage]||item.stage : null, item.followUpDate || null].filter(Boolean).join(' · ');
+    return `
+      <div class="dash-detail-item">
+        <div class="dash-detail-avatar">${initials}</div>
+        <div class="dash-detail-info">
+          <div class="dash-detail-name">${_esc(item.name)}</div>
+          <div class="dash-detail-meta">${_esc(item.phone || '')}${extra ? (item.phone ? ' · ' : '') + extra : ''}</div>
+        </div>
+        ${item.normalizedPhone ? `<a href="https://wa.me/${item.normalizedPhone}" target="_blank" class="dash-wa-btn" onclick="event.stopPropagation()"><i class="ph ph-whatsapp-logo"></i></a>` : ''}
+      </div>`;
+  }).join('');
+
+  modal.classList.add('open');
+}
+
+function dashDetailClose(e) {
+  if (e && e.target.id !== 'dash-detail-modal') return;
+  document.getElementById('dash-detail-modal')?.classList.remove('open');
+}
+
+function dashboardRender() {
+  const body = document.getElementById('dash-body');
+  if (!body) return;
+
+  const contacts = (typeof disparoContacts !== 'undefined') ? disparoContacts : [];
+  const bookings = (typeof schedBookings   !== 'undefined') ? schedBookings   : [];
+
+  const now = new Date();
+
+  /* ── Helpers ──────────────────────────────────────────────── */
+  function _ds(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function _addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+  function _monthStart(offset) { return new Date(now.getFullYear(), now.getMonth() + offset, 1); }
+  function _fmtShort(str) {
+    if (!str) return '—';
+    const d = new Date(str + 'T00:00:00');
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  }
+  function _esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  const todayStr              = _ds(now);
+  const { fromTs, toTs }      = _dashGetRange();
+  const periodLabel           = _dashPeriodLabel();
+
+  /* ── Novos Contatos no período selecionado ─────────────────── */
+  const newContacts = contacts.filter(c => {
+    if (!c.createdAt) return false;
+    const ts = c.createdAt.getTime();
+    return ts >= fromTs && ts <= toTs;
+  });
+
+  /* ── Funil (estado atual) ────────────────────────────────────── */
+  const fechados   = contacts.filter(c => c.stage === 'fechado');
+  const perdidos   = contacts.filter(c => c.stage === 'perdido');
+  const negociacao = contacts.filter(c => c.stage === 'negociacao');
+  const reuniao    = contacts.filter(c => c.stage === 'reuniao');
+  const followUps  = contacts.filter(c => c.stage === 'followup');
+  const cntTotal   = contacts.length;
+
+  /* ── Follow-ups (hoje + próximos 5 dias) ───────────────────── */
+  const fuWindowDays = Array.from({ length: 6 }, (_, i) => _ds(_addDays(now, i)));
+  const fuOverdue    = contacts.filter(c => c.followUpDate && c.followUpDate < todayStr && c.stage === 'followup');
+  const fuWindow     = contacts
+    .filter(c => c.followUpDate && fuWindowDays.includes(c.followUpDate))
+    .sort((a, b) => (a.followUpDate||'').localeCompare(b.followUpDate||''));
+  const fuToday = fuWindow.filter(c => c.followUpDate === todayStr);
+
+  /* ── Agendamentos (hoje + próximos 5 dias) ──────────────────── */
+  const schedWindowDays = Array.from({ length: 6 }, (_, i) => _ds(_addDays(now, i)));
+  const schedWindow = bookings
+    .filter(b => b.date && schedWindowDays.includes(b.date) && b.status !== 'cancelled')
+    .sort((a, b) => {
+      const dc = (a.date||'').localeCompare(b.date||'');
+      return dc !== 0 ? dc : (a.time||'').localeCompare(b.time||'');
+    });
+  const schedToday = schedWindow.filter(b => b.date === todayStr);
+
+  /* ── Aniversariantes (próximos 30 dias) ─────────────────────── */
+  const bdMap = new Map();
+  for (let i = 0; i <= 30; i++) {
+    const d   = _addDays(now, i);
+    const m   = d.getMonth() + 1;
+    const day = d.getDate();
+    contacts.forEach(c => {
+      if (c.birthday && !bdMap.has(c.id)) {
+        const bd = c.birthday instanceof Date ? c.birthday : new Date(c.birthday);
+        if (bd.getMonth() + 1 === m && bd.getDate() === day) {
+          bdMap.set(c.id, { ...c, _bday: _ds(d) });
+        }
+      }
+    });
+  }
+  const birthdays = [...bdMap.values()].sort((a, b) => a._bday.localeCompare(b._bday));
+
+  /* ── Planos ─────────────────────────────────────────────────── */
+  const activePlans   = contacts.filter(c => c.subscription && c.subscription.status === 'active');
+  const expiringPlans = (typeof planGetExpiringSoon === 'function') ? planGetExpiringSoon(7) : [];
+
+  /* ── Gráfico: Novos Contatos por Mês (últimos 12 meses) ─────── */
+  const MONTH_LABELS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const monthKeys    = Array.from({ length: 12 }, (_, i) => {
+    const d = _monthStart(-(11 - i));
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+  const monthData  = new Array(12).fill(0);
+  const monthItems = Array.from({ length: 12 }, () => []);
+  contacts.forEach(c => {
+    if (!c.createdAt) return;
+    const y = c.createdAt.getFullYear(), m = c.createdAt.getMonth();
+    const idx = monthKeys.findIndex(k => k.year === y && k.month === m);
+    if (idx >= 0) { monthData[idx]++; monthItems[idx].push(c); }
+  });
+  const maxMonthVal = Math.max(...monthData, 1);
+
+  /* ── Salvar cache para detail modal ─────────────────────────── */
+  _dashCache = {
+    new_contacts:        newContacts,
+    new_contacts_title:  `Novos Contatos — ${periodLabel}`,
+    fechados,
+    fechados_title:      'Clientes Fechados',
+    perdidos,
+    perdidos_title:      'Leads Perdidos',
+    negociacao,
+    negociacao_title:    'Em Negociação',
+    reuniao,
+    reuniao_title:       'Reuniões Agendadas',
+    followups:           followUps,
+    followups_title:     'Em Follow-up',
+    fuToday,
+    fuToday_title:       'Follow-ups para Hoje',
+    fuOverdue,
+    fuOverdue_title:     'Follow-ups em Atraso',
+    fuWindow,
+    fuWindow_title:      'Follow-ups — Próximos 5 dias',
+    schedToday,
+    schedToday_title:    'Agendamentos de Hoje',
+    schedWindow,
+    schedWindow_title:   'Agendamentos — Próximos 5 dias',
+    birthdays,
+    birthdays_title:     'Aniversariantes — Próximos 30 dias',
+    activePlans,
+    activePlans_title:   'Planos Ativos',
+    expiringPlans,
+    expiringPlans_title: 'Planos Expirando em 7 dias',
+    allContacts:         contacts,
+    allContacts_title:   'Todos os Contatos',
+  };
+  monthKeys.forEach((k, i) => {
+    _dashCache[`month_${i}`]          = monthItems[i];
+    _dashCache[`month_${i}_title`]    = `Novos em ${MONTH_LABELS[k.month]}/${k.year}`;
+  });
+
+  /* ── Render Helpers ─────────────────────────────────────────── */
+  function _fuItem(c) {
+    const isToday = c.followUpDate === todayStr;
+    const isPast  = c.followUpDate < todayStr;
+    const label   = isToday ? 'Hoje' : isPast ? 'Atrasado' : _fmtShort(c.followUpDate);
+    return `
+      <div class="dash-list-item${isToday ? ' dash-li--today' : ''}${isPast ? ' dash-li--overdue' : ''}">
+        <div class="dash-li-icon dash-li-icon--green"><i class="ph ph-whatsapp-logo"></i></div>
+        <div class="dash-li-body">
+          <div class="dash-li-name">${_esc(c.name)}</div>
+          <div class="dash-li-meta">${label}</div>
+        </div>
+        ${(isToday || isPast) && c.normalizedPhone ? `<a href="https://wa.me/${c.normalizedPhone}" target="_blank" class="dash-wa-btn" onclick="event.stopPropagation()"><i class="ph ph-whatsapp-logo"></i></a>` : ''}
+      </div>`;
+  }
+  function _schedItem(b) {
+    const isToday = b.date === todayStr;
+    return `
+      <div class="dash-list-item${isToday ? ' dash-li--today' : ''}">
+        <div class="dash-li-icon dash-li-icon--indigo"><i class="ph ph-calendar-blank"></i></div>
+        <div class="dash-li-body">
+          <div class="dash-li-name">${_esc(b.clientName || b.name || 'Cliente')}</div>
+          <div class="dash-li-meta">${isToday ? 'Hoje' : _fmtShort(b.date)}${b.time ? ' · ' + b.time : ''}</div>
+        </div>
+      </div>`;
+  }
+  function _bdItem(c) {
+    const isToday = c._bday === todayStr;
+    const bd  = c.birthday instanceof Date ? c.birthday : new Date(c.birthday);
+    const age = now.getFullYear() - bd.getFullYear();
+    return `
+      <div class="dash-list-item${isToday ? ' dash-li--today' : ''}">
+        <div class="dash-li-icon dash-li-icon--amber"><i class="ph ph-cake"></i></div>
+        <div class="dash-li-body">
+          <div class="dash-li-name">${_esc(c.name)} <span class="dash-age-tag">${age} anos</span></div>
+          <div class="dash-li-meta">${isToday ? '🎂 Hoje!' : _fmtShort(c._bday)}</div>
+        </div>
+        ${c.normalizedPhone ? `<a href="https://wa.me/${c.normalizedPhone}" target="_blank" class="dash-wa-btn dash-wa-btn--amber" onclick="event.stopPropagation()"><i class="ph ph-whatsapp-logo"></i></a>` : ''}
+      </div>`;
+  }
+  function _expPlanItem(c) {
+    const exp = c.subscription?.expiresAt;
+    return `
+      <div class="dash-list-item">
+        <div class="dash-li-icon dash-li-icon--red"><i class="ph ph-warning"></i></div>
+        <div class="dash-li-body">
+          <div class="dash-li-name">${_esc(c.name)}</div>
+          <div class="dash-li-meta">${_esc(c.subscription?.planName||'—')} · Expira ${exp ? exp.toLocaleDateString('pt-BR') : '—'}</div>
+        </div>
+      </div>`;
+  }
+  function _empty(msg) { return `<p class="dash-empty-msg">${msg}</p>`; }
+  function _badge(n, color) { return `<span class="dash-card-badge dash-card-badge--${color}">${n}</span>`; }
+  function _kpiClick(key) {
+    const arr = _dashCache[key];
+    return arr && arr.length > 0 ? `onclick="dashDetail('${key}')"` : '';
+  }
+
+  /* ── Barras do gráfico (clicáveis) ─────────────────────────── */
+  const barsHtml = monthKeys.map((k, i) => {
+    const pct       = Math.round((monthData[i] / maxMonthVal) * 100);
+    const isCurrent = k.year === now.getFullYear() && k.month === now.getMonth();
+    const hasData   = monthData[i] > 0;
+    return `
+      <div class="dash-bar-col${isCurrent ? ' dash-bar-col--current' : ''}${hasData ? ' dash-bar-col--clickable' : ''}"
+           ${hasData ? `onclick="dashDetail('month_${i}')" title="Ver ${monthData[i]} contatos de ${MONTH_LABELS[k.month]}/${k.year}"` : ''}>
+        <div class="dash-bar-val">${monthData[i] || ''}</div>
+        <div class="dash-bar-track"><div class="dash-bar-fill" style="height:${Math.max(pct, 2)}%"></div></div>
+        <div class="dash-bar-lbl">${MONTH_LABELS[k.month]}</div>
+      </div>`;
+  }).join('');
+
+  /* ── Alertas (clicáveis) ────────────────────────────────────── */
+  const alertsHtml = [
+    fuOverdue.length     ? `<div class="dash-alert dash-alert--red"    onclick="dashDetail('fuOverdue')"    style="cursor:pointer"><i class="ph ph-warning-circle"></i> ${fuOverdue.length} follow-up${fuOverdue.length > 1 ? 's' : ''} em atraso</div>` : '',
+    fuToday.length       ? `<div class="dash-alert dash-alert--blue"   onclick="dashDetail('fuToday')"      style="cursor:pointer"><i class="ph ph-bell-ringing"></i> ${fuToday.length} follow-up${fuToday.length > 1 ? 's' : ''} para hoje</div>` : '',
+    schedToday.length    ? `<div class="dash-alert dash-alert--indigo" onclick="dashDetail('schedToday')"   style="cursor:pointer"><i class="ph ph-calendar-check"></i> ${schedToday.length} agendamento${schedToday.length > 1 ? 's' : ''} para hoje</div>` : '',
+    expiringPlans.length ? `<div class="dash-alert dash-alert--amber"  onclick="dashDetail('expiringPlans')" style="cursor:pointer"><i class="ph ph-currency-circle-dollar"></i> ${expiringPlans.length} plano${expiringPlans.length > 1 ? 's' : ''} expirando em 7 dias</div>` : '',
+  ].filter(Boolean).join('');
+
+  /* ── Taxas ──────────────────────────────────────────────────── */
+  const convRate = cntTotal > 0 ? Math.round(fechados.length / cntTotal * 100) : 0;
+  const lossRate = cntTotal > 0 ? Math.round(perdidos.length / cntTotal * 100) : 0;
+
+  /* ── Filtro de período ──────────────────────────────────────── */
+  const PERIODS = [
+    { key: 'month',      label: 'Este mês' },
+    { key: 'last_month', label: 'Mês passado' },
+    { key: '3months',    label: '3 meses' },
+    { key: '6months',    label: '6 meses' },
+    { key: 'year',       label: 'Este ano' },
+    { key: 'custom',     label: 'Período' },
+  ];
+  const filterHtml = `
+    <div class="dash-filter-bar">
+      <div class="dash-filter-pills">
+        ${PERIODS.map(p => `<button class="dash-filter-pill${_dashPeriod === p.key ? ' active' : ''}" onclick="dashSetPeriod('${p.key}')">${p.label}</button>`).join('')}
+      </div>
+      ${_dashPeriod === 'custom' ? `
+        <div class="dash-custom-range">
+          <input type="date" id="dash-custom-from" class="dash-range-input" value="${_dashCustomFrom}" />
+          <span class="dash-range-sep">até</span>
+          <input type="date" id="dash-custom-to" class="dash-range-input" value="${_dashCustomTo}" />
+          <button class="dash-range-apply" onclick="dashApplyCustom()"><i class="ph ph-check"></i> Aplicar</button>
+        </div>` : ''}
+      <span class="dash-period-label">${periodLabel}</span>
+    </div>`;
+
+  /* ── HTML Final ─────────────────────────────────────────────── */
+  body.innerHTML = `
+    ${filterHtml}
+    ${alertsHtml ? `<div class="dash-alerts-row">${alertsHtml}</div>` : ''}
+
+    <!-- KPI Grid -->
+    <div class="dash-kpi-grid">
+
+      <div class="dash-kpi dash-kpi--blue dash-kpi--clickable" ${_kpiClick('new_contacts')}>
+        <div class="dash-kpi-icon"><i class="ph ph-user-plus"></i></div>
+        <div class="dash-kpi-info">
+          <div class="dash-kpi-label">Novos contatos</div>
+          <div class="dash-kpi-value">${newContacts.length}</div>
+          <div class="dash-kpi-sub">${periodLabel}</div>
+        </div>
+        <i class="ph ph-arrow-right dash-kpi-arrow"></i>
+      </div>
+
+      <div class="dash-kpi dash-kpi--teal dash-kpi--clickable" ${_kpiClick('allContacts')}>
+        <div class="dash-kpi-icon"><i class="ph ph-users-three"></i></div>
+        <div class="dash-kpi-info">
+          <div class="dash-kpi-label">Total de Contatos</div>
+          <div class="dash-kpi-value">${cntTotal}</div>
+          <div class="dash-kpi-sub">Base completa</div>
+        </div>
+        <i class="ph ph-arrow-right dash-kpi-arrow"></i>
+      </div>
+
+      <div class="dash-kpi dash-kpi--green dash-kpi--clickable" ${_kpiClick('fechados')}>
+        <div class="dash-kpi-icon"><i class="ph ph-handshake"></i></div>
+        <div class="dash-kpi-info">
+          <div class="dash-kpi-label">Fechados</div>
+          <div class="dash-kpi-value">${fechados.length}</div>
+          <div class="dash-kpi-sub">Taxa: <strong>${convRate}%</strong></div>
+        </div>
+        <i class="ph ph-arrow-right dash-kpi-arrow"></i>
+      </div>
+
+      <div class="dash-kpi dash-kpi--red dash-kpi--clickable" ${_kpiClick('perdidos')}>
+        <div class="dash-kpi-icon"><i class="ph ph-x-circle"></i></div>
+        <div class="dash-kpi-info">
+          <div class="dash-kpi-label">Perdidos</div>
+          <div class="dash-kpi-value">${perdidos.length}</div>
+          <div class="dash-kpi-sub">Taxa: <strong>${lossRate}%</strong></div>
+        </div>
+        <i class="ph ph-arrow-right dash-kpi-arrow"></i>
+      </div>
+
+      <div class="dash-kpi dash-kpi--orange dash-kpi--clickable" ${_kpiClick('negociacao')}>
+        <div class="dash-kpi-icon"><i class="ph ph-chats"></i></div>
+        <div class="dash-kpi-info">
+          <div class="dash-kpi-label">Em Negociação</div>
+          <div class="dash-kpi-value">${negociacao.length}</div>
+          <div class="dash-kpi-sub">Reuniões: <strong>${reuniao.length}</strong></div>
+        </div>
+        <i class="ph ph-arrow-right dash-kpi-arrow"></i>
+      </div>
+
+      <div class="dash-kpi dash-kpi--amber dash-kpi--clickable" ${_kpiClick('followups')}>
+        <div class="dash-kpi-icon"><i class="ph ph-clock-countdown"></i></div>
+        <div class="dash-kpi-info">
+          <div class="dash-kpi-label">Em Follow-up</div>
+          <div class="dash-kpi-value">${followUps.length}</div>
+          <div class="dash-kpi-sub">Hoje: <strong>${fuToday.length}</strong> · Atrasados: <strong class="${fuOverdue.length > 0 ? 'dash-danger' : ''}">${fuOverdue.length}</strong></div>
+        </div>
+        <i class="ph ph-arrow-right dash-kpi-arrow"></i>
+      </div>
+
+      <div class="dash-kpi dash-kpi--indigo dash-kpi--clickable" ${_kpiClick('schedWindow')}>
+        <div class="dash-kpi-icon"><i class="ph ph-calendar-check"></i></div>
+        <div class="dash-kpi-info">
+          <div class="dash-kpi-label">Agendamentos hoje</div>
+          <div class="dash-kpi-value">${schedToday.length}</div>
+          <div class="dash-kpi-sub">Próx. 5 dias: <strong>${schedWindow.length}</strong></div>
+        </div>
+        <i class="ph ph-arrow-right dash-kpi-arrow"></i>
+      </div>
+
+      <div class="dash-kpi dash-kpi--purple dash-kpi--clickable" ${_kpiClick('activePlans')}>
+        <div class="dash-kpi-icon"><i class="ph ph-currency-circle-dollar"></i></div>
+        <div class="dash-kpi-info">
+          <div class="dash-kpi-label">Planos Ativos</div>
+          <div class="dash-kpi-value">${activePlans.length}</div>
+          <div class="dash-kpi-sub">Expirando 7 dias: <strong class="${expiringPlans.length > 0 ? 'dash-danger' : ''}">${expiringPlans.length}</strong></div>
+        </div>
+        <i class="ph ph-arrow-right dash-kpi-arrow"></i>
+      </div>
+
+    </div>
+
+    <!-- Gráfico -->
+    <div class="dash-section">
+      <div class="dash-section-header">
+        <h3 class="dash-section-title"><i class="ph ph-chart-bar"></i> Novos Contatos por Mês</h3>
+        <span class="dash-section-meta">Últimos 12 meses · clique na barra para ver quem entrou</span>
+      </div>
+      <div class="dash-chart-card">
+        <div class="dash-bar-chart">${barsHtml}</div>
+      </div>
+    </div>
+
+    <!-- Listas -->
+    <div class="dash-lists-grid">
+
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <h3 class="dash-card-title"><i class="ph ph-whatsapp-logo" style="color:#25d366"></i> Follow-ups</h3>
+          <div class="dash-card-header-right">
+            ${_badge(fuWindow.length, 'green')}
+            ${fuWindow.length > 5 ? `<button class="dash-see-all" onclick="dashDetail('fuWindow')">Ver todos</button>` : ''}
+          </div>
+        </div>
+        <div class="dash-list">
+          ${fuWindow.length ? fuWindow.slice(0, 5).map(_fuItem).join('') + (fuWindow.length > 5 ? `<div class="dash-list-more" onclick="dashDetail('fuWindow')">+${fuWindow.length - 5} mais</div>` : '') : _empty('Nenhum follow-up nos próximos 5 dias')}
+        </div>
+      </div>
+
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <h3 class="dash-card-title"><i class="ph ph-calendar-blank" style="color:#4f46e5"></i> Agendamentos</h3>
+          <div class="dash-card-header-right">
+            ${_badge(schedWindow.length, 'indigo')}
+            ${schedWindow.length > 5 ? `<button class="dash-see-all" onclick="dashDetail('schedWindow')">Ver todos</button>` : ''}
+          </div>
+        </div>
+        <div class="dash-list">
+          ${schedWindow.length ? schedWindow.slice(0, 5).map(_schedItem).join('') + (schedWindow.length > 5 ? `<div class="dash-list-more" onclick="dashDetail('schedWindow')">+${schedWindow.length - 5} mais</div>` : '') : _empty('Nenhum agendamento nos próximos 5 dias')}
+        </div>
+      </div>
+
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <h3 class="dash-card-title"><i class="ph ph-cake" style="color:#f59e0b"></i> Aniversariantes</h3>
+          <div class="dash-card-header-right">
+            ${_badge(birthdays.length, 'amber')}
+            ${birthdays.length > 5 ? `<button class="dash-see-all" onclick="dashDetail('birthdays')">Ver todos</button>` : ''}
+          </div>
+        </div>
+        <div class="dash-list">
+          ${birthdays.length ? birthdays.slice(0, 5).map(_bdItem).join('') + (birthdays.length > 5 ? `<div class="dash-list-more" onclick="dashDetail('birthdays')">+${birthdays.length - 5} mais</div>` : '') : _empty('Nenhum aniversariante nos próximos 30 dias')}
+        </div>
+      </div>
+
+      <div class="dash-card">
+        <div class="dash-card-header">
+          <h3 class="dash-card-title"><i class="ph ph-warning-circle" style="color:#f59e0b"></i> Planos Expirando</h3>
+          <div class="dash-card-header-right">
+            ${_badge(expiringPlans.length, 'amber')}
+            ${expiringPlans.length > 5 ? `<button class="dash-see-all" onclick="dashDetail('expiringPlans')">Ver todos</button>` : ''}
+          </div>
+        </div>
+        <div class="dash-list">
+          ${expiringPlans.length ? expiringPlans.slice(0, 5).map(_expPlanItem).join('') + (expiringPlans.length > 5 ? `<div class="dash-list-more" onclick="dashDetail('expiringPlans')">+${expiringPlans.length - 5} mais</div>` : '') : _empty('Nenhum plano expirando em 7 dias')}
+        </div>
+      </div>
+
+    </div>
+  `;
 }
