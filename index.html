@@ -19,6 +19,7 @@
   <link rel="icon" type="image/png" href="assets/img/favicon.png" />
   <link rel="stylesheet" href="assets/css/style.css" />
   <link rel="stylesheet" href="assets/css/auth.css" />
+  <link rel="stylesheet" href="assets/css/generator.css" />
 </head>
 
 <body>
@@ -33,15 +34,15 @@
     </div>
 
     <nav class="sidebar-nav">
-      <a href="#" class="nav-item" data-tool="dashboard" onclick="loadTool('dashboard', this)">
+      <a href="#" class="nav-item active" id="nav-item-dashboard" data-tool="dashboard" onclick="loadTool('dashboard', this)">
         <i class="ph ph-chart-pie"></i>
         <span>Dashboard</span>
       </a>
-      <a href="#" class="nav-item active" data-tool="crm" onclick="loadTool('crm', this)">
+      <a href="#" class="nav-item" id="nav-item-crm" data-tool="crm" onclick="loadTool('crm', this)">
         <i class="ph ph-kanban"></i>
         <span>CRM & Leads</span>
       </a>
-      <a href="#" class="nav-item" data-tool="clientes" onclick="loadTool('clientes', this)">
+      <a href="#" class="nav-item" id="nav-item-clientes" data-tool="clientes" onclick="loadTool('clientes', this)">
         <i class="ph ph-users-three"></i>
         <span>Clientes</span>
       </a>
@@ -49,21 +50,25 @@
         <i class="ph ph-calendar-blank"></i>
         <span>Agendamentos</span>
       </a>
-      <a href="#" class="nav-item" data-tool="disparo" onclick="loadTool('disparo', this)">
+      <a href="#" class="nav-item" id="nav-item-disparo" data-tool="disparo" onclick="loadTool('disparo', this)">
         <i class="ph ph-whatsapp-logo"></i>
         <span>Disparo WhatsApp</span>
       </a>
-      <a href="#" class="nav-item" data-tool="clt-pj" onclick="loadTool('clt-pj', this)">
+      <a href="#" class="nav-item" id="nav-item-clt-pj" data-tool="clt-pj" onclick="loadTool('clt-pj', this)">
         <i class="ph ph-scales"></i>
         <span>Custo CLT x PJ</span>
       </a>
-      <a href="#" class="nav-item" data-tool="km-calc" onclick="loadTool('km-calc', this)">
+      <a href="#" class="nav-item" id="nav-item-km-calc" data-tool="km-calc" onclick="loadTool('km-calc', this)">
         <i class="ph ph-car"></i>
         <span>Calculadora de KM</span>
       </a>
-      <a href="#" class="nav-item" data-tool="planos" onclick="loadTool('planos', this)">
+      <a href="#" class="nav-item" id="nav-item-planos" data-tool="planos" onclick="loadTool('planos', this)">
         <i class="ph ph-squares-four"></i>
         <span>Planos</span>
+      </a>
+      <a href="#" class="nav-item" id="nav-item-generator" data-tool="generator" onclick="loadTool('generator', this)">
+        <i class="ph ph-magic-wand"></i>
+        <span>Gerador de Sites</span>
       </a>
 
     </nav>
@@ -1009,7 +1014,7 @@
       </div><!-- /tool-disparo -->
 
       <!-- ══════════════════ TOOL: CRM KANBAN ══════════════════ -->
-      <div class="tool-view" id="tool-crm">
+      <div class="tool-view hidden" id="tool-crm">
         <div class="tool-header">
           <div class="tool-header-left">
             <h1 class="tool-title">CRM & Leads</h1>
@@ -1660,7 +1665,7 @@
       </div><!-- /tool-admin -->
 
       <!-- ══════════════════ TOOL: DASHBOARD ══════════════════ -->
-      <div class="tool-view hidden" id="tool-dashboard">
+      <div class="tool-view" id="tool-dashboard">
 
         <div class="tool-header">
           <div class="tool-header-left">
@@ -1687,6 +1692,421 @@
         </div>
 
       </div><!-- /tool-dashboard -->
+
+      <!-- ══════════════════ TOOL: GERADOR DE SITES ══════════════════ -->
+      <div class="tool-view hidden" id="tool-generator">
+
+        <div class="tool-header">
+          <div class="tool-header-left">
+            <h1 class="tool-title">Gerador de Sites</h1>
+            <nav class="breadcrumb-mini">
+              <a href="#">Início</a>
+              <i class="ph ph-caret-right"></i>
+              <span class="breadcrumb-current-mini" id="gen-breadcrumb">Novo Site</span>
+            </nav>
+          </div>
+        </div>
+
+        <!-- Step Indicator -->
+        <div class="gen-steps-bar">
+          <div class="gen-step-indicator active" data-step="1" onclick="genGoToStep(1)">
+            <div class="gen-step-num">1</div>
+            <span>Modelo</span>
+          </div>
+          <div class="gen-step-connector"></div>
+          <div class="gen-step-indicator todo" data-step="2" onclick="genGoToStep(2)">
+            <div class="gen-step-num">2</div>
+            <span>Identidade</span>
+          </div>
+          <div class="gen-step-connector"></div>
+          <div class="gen-step-indicator todo" data-step="3" onclick="genGoToStep(3)">
+            <div class="gen-step-num">3</div>
+            <span>Aparência</span>
+          </div>
+          <div class="gen-step-connector"></div>
+          <div class="gen-step-indicator todo" data-step="4" onclick="genGoToStep(4)">
+            <div class="gen-step-num">4</div>
+            <span>Conteúdo</span>
+          </div>
+          <div class="gen-step-connector"></div>
+          <div class="gen-step-indicator todo" data-step="5" onclick="genGoToStep(5)">
+            <div class="gen-step-num">5</div>
+            <span>Gerar</span>
+          </div>
+        </div>
+
+        <!-- ── PAINEL 1: Escolha do Modelo ── -->
+        <div class="tool-body" id="gen-panel-1">
+          <p class="tool-desc">Escolha o modelo base do seu site. As cores e todos os textos podem ser personalizados nos próximos passos.</p>
+
+          <div class="gen-tpl-grid">
+            <!-- Modelo Escuro (Barber) -->
+            <div class="gen-tpl-card" data-tpl="barber" onclick="genSelectTemplate('barber')">
+              <div class="gen-tpl-preview gen-tpl-preview--barber">
+                <div class="gen-tpl-header-mock">
+                  <div class="gen-tpl-logo-mock"></div>
+                  <div class="gen-tpl-nav-mock"><span></span><span></span><span></span></div>
+                  <div class="gen-tpl-cta-mock"></div>
+                </div>
+                <div class="gen-tpl-hero-mock">
+                  <div class="gen-tpl-hero-text">
+                    <div class="gen-tpl-h1-mock"></div>
+                    <div class="gen-tpl-p-mock"></div>
+                    <div class="gen-tpl-btn-mock"></div>
+                  </div>
+                </div>
+                <div class="gen-tpl-cards-mock">
+                  <div class="gen-tpl-card-mock"></div>
+                  <div class="gen-tpl-card-mock"></div>
+                  <div class="gen-tpl-card-mock"></div>
+                </div>
+              </div>
+              <div class="gen-tpl-info">
+                <div class="gen-tpl-check"><i class="ph ph-check"></i></div>
+                <h3>Modelo Escuro</h3>
+                <p>Ideal para barbearias, estúdios masculinos, tattoo, academia. Fundo escuro com destaque dourado e visual premium.</p>
+                <div class="gen-tpl-tags">
+                  <span>Barbearia</span>
+                  <span>Estúdio</span>
+                  <span>Masculino</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Modelo Claro (Kamilly) -->
+            <div class="gen-tpl-card" data-tpl="kamilly" onclick="genSelectTemplate('kamilly')">
+              <div class="gen-tpl-preview gen-tpl-preview--kamilly">
+                <div class="gen-tpl-header-mock gen-tpl-header-mock--light">
+                  <div class="gen-tpl-logo-mock gen-tpl-logo-mock--pink"></div>
+                  <div class="gen-tpl-nav-mock gen-tpl-nav-mock--dark"><span></span><span></span><span></span></div>
+                  <div class="gen-tpl-cta-mock gen-tpl-cta-mock--pink"></div>
+                </div>
+                <div class="gen-tpl-hero-mock gen-tpl-hero-mock--light">
+                  <div class="gen-tpl-hero-text">
+                    <div class="gen-tpl-h1-mock gen-tpl-h1-mock--dark"></div>
+                    <div class="gen-tpl-p-mock gen-tpl-p-mock--dark"></div>
+                    <div class="gen-tpl-btn-mock gen-tpl-btn-mock--pink"></div>
+                  </div>
+                </div>
+                <div class="gen-tpl-cards-mock">
+                  <div class="gen-tpl-card-mock gen-tpl-card-mock--pink"></div>
+                  <div class="gen-tpl-card-mock gen-tpl-card-mock--pink"></div>
+                  <div class="gen-tpl-card-mock gen-tpl-card-mock--pink"></div>
+                </div>
+              </div>
+              <div class="gen-tpl-info">
+                <div class="gen-tpl-check"><i class="ph ph-check"></i></div>
+                <h3>Modelo Claro</h3>
+                <p>Ideal para nail art, salão de beleza, estética, make. Fundo claro com destaque em rosa e visual delicado.</p>
+                <div class="gen-tpl-tags">
+                  <span>Nail Art</span>
+                  <span>Salão</span>
+                  <span>Estética</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="gen-step-actions">
+            <div></div>
+            <button class="btn-primary" id="gen-next-1" onclick="genGoToStep(2)" disabled>
+              Próximo <i class="ph ph-arrow-right"></i>
+            </button>
+          </div>
+        </div><!-- /gen-panel-1 -->
+
+        <!-- ── PAINEL 2: Identidade ── -->
+        <div class="tool-body" id="gen-panel-2" hidden>
+          <p class="tool-desc">Preencha as informações do seu negócio. Esses dados aparecem no site e nos links de contato.</p>
+
+          <div class="gen-form">
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-storefront"></i> Negócio</h2>
+              <div class="form-grid form-grid--2">
+                <div class="form-field">
+                  <label for="gen-name">Nome do Negócio <span class="req">*</span></label>
+                  <input type="text" id="gen-name" placeholder="Ex: Barbearia Estilo" />
+                </div>
+                <div class="form-field">
+                  <label for="gen-tagline">Tagline / Slogan</label>
+                  <input type="text" id="gen-tagline" placeholder="Ex: Onde estilo encontra tradição" />
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-phone"></i> Contato</h2>
+              <div class="form-grid form-grid--2">
+                <div class="form-field">
+                  <label for="gen-phone">Telefone (exibido no site)</label>
+                  <input type="text" id="gen-phone" placeholder="(11) 9xxxx-xxxx" />
+                </div>
+                <div class="form-field">
+                  <label for="gen-whatsapp">Número WhatsApp <span class="label-unit">(só números + DDD)</span></label>
+                  <input type="text" id="gen-whatsapp" placeholder="5511999999999" />
+                </div>
+                <div class="form-field">
+                  <label for="gen-instagram">Instagram</label>
+                  <div class="input-icon-wrap">
+                    <i class="ph ph-instagram-logo"></i>
+                    <input type="text" id="gen-instagram" placeholder="@seunegocio" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-map-pin"></i> Localização</h2>
+              <div class="form-grid form-grid--2">
+                <div class="form-field form-grid--span2">
+                  <label for="gen-address">Endereço completo</label>
+                  <input type="text" id="gen-address" placeholder="Rua X, 123 - Bairro - Cidade/SP" />
+                </div>
+                <div class="form-field form-grid--span2">
+                  <label for="gen-maps">Link embed do Google Maps</label>
+                  <input type="text" id="gen-maps" placeholder="https://maps.google.com/maps?q=..." />
+                  <span class="field-hint">Google Maps → Compartilhar → Incorporar mapa → copie o link do atributo src="..."</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="gen-step-actions">
+            <button class="btn-ghost" onclick="genGoToStep(1)">
+              <i class="ph ph-arrow-left"></i> Voltar
+            </button>
+            <button class="btn-primary" onclick="genGoToStep(3)">
+              Próximo <i class="ph ph-arrow-right"></i>
+            </button>
+          </div>
+        </div><!-- /gen-panel-2 -->
+
+        <!-- ── PAINEL 3: Aparência ── -->
+        <div class="tool-body" id="gen-panel-3" hidden>
+          <p class="tool-desc">Personalize as cores do site. Escolha um preset pronto ou ajuste cada cor individualmente.</p>
+
+          <div class="gen-colors-layout">
+            <div class="gen-colors-form card">
+              <h2 class="card-title"><i class="ph ph-palette"></i> Paleta de Cores</h2>
+              <div class="gen-color-list" id="gen-color-list">
+                <!-- Populado por generator.js -->
+              </div>
+              <div class="gen-color-presets">
+                <p class="gen-presets-label">Presets prontos</p>
+                <div class="gen-presets-btns" id="gen-presets-btns">
+                  <!-- Populado por generator.js -->
+                </div>
+              </div>
+            </div>
+
+            <div class="gen-preview-card card">
+              <h2 class="card-title"><i class="ph ph-eye"></i> Pré-visualização</h2>
+              <div class="gen-color-preview" id="gen-color-preview">
+                <div class="gen-prev-header">
+                  <div class="gen-prev-logo">LOGO</div>
+                  <nav class="gen-prev-nav">
+                    <span>Início</span>
+                    <span>Serviços</span>
+                    <span>Contato</span>
+                  </nav>
+                  <div class="gen-prev-cta">Agendar</div>
+                </div>
+                <div class="gen-prev-hero">
+                  <div class="gen-prev-hero-content">
+                    <div class="gen-prev-badge">Especialista</div>
+                    <h2 class="gen-prev-heading" id="gen-prev-heading">Nome do Negócio</h2>
+                    <p class="gen-prev-sub">Sua tagline aparece aqui</p>
+                    <div class="gen-prev-btn">Agendar Agora</div>
+                  </div>
+                </div>
+                <div class="gen-prev-cards">
+                  <div class="gen-prev-service-card">
+                    <div class="gen-prev-svc-icon"></div>
+                    <span>Serviço 1</span>
+                    <strong>R$ 50</strong>
+                  </div>
+                  <div class="gen-prev-service-card">
+                    <div class="gen-prev-svc-icon"></div>
+                    <span>Serviço 2</span>
+                    <strong>R$ 80</strong>
+                  </div>
+                  <div class="gen-prev-service-card">
+                    <div class="gen-prev-svc-icon"></div>
+                    <span>Serviço 3</span>
+                    <strong>R$ 60</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="gen-step-actions">
+            <button class="btn-ghost" onclick="genGoToStep(2)">
+              <i class="ph ph-arrow-left"></i> Voltar
+            </button>
+            <button class="btn-primary" onclick="genGoToStep(4)">
+              Próximo <i class="ph ph-arrow-right"></i>
+            </button>
+          </div>
+        </div><!-- /gen-panel-3 -->
+
+        <!-- ── PAINEL 4: Conteúdo ── -->
+        <div class="tool-body" id="gen-panel-4" hidden>
+          <p class="tool-desc">Edite os textos principais do site. Os serviços virão automaticamente da API do Orbit.</p>
+
+          <div class="gen-form">
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-flag-banner"></i> Hero (Topo do Site)</h2>
+              <div class="form-grid form-grid--1">
+                <div class="form-field">
+                  <label for="gen-hero-heading">Título Principal</label>
+                  <input type="text" id="gen-hero-heading" placeholder="Ex: A Barbearia que Respeita seu Tempo" />
+                </div>
+                <div class="form-field">
+                  <label for="gen-hero-subheading">Subtítulo</label>
+                  <textarea id="gen-hero-subheading" rows="2" placeholder="Ex: Cada corte é uma obra de arte. Técnica, cuidado e estilo em cada visita."></textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-chart-bar"></i> Estatísticas</h2>
+              <p class="card-desc">Números exibidos na seção hero. Máximo 4.</p>
+              <div class="gen-stats-list" id="gen-stats-container"></div>
+              <button class="btn-ghost btn-sm gen-add-btn" onclick="genAddStat()">
+                <i class="ph ph-plus"></i> Adicionar estatística
+              </button>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-info"></i> Sobre o Negócio</h2>
+              <div class="form-grid form-grid--1">
+                <div class="form-field">
+                  <label for="gen-about-title">Título da Seção</label>
+                  <input type="text" id="gen-about-title" placeholder="Ex: Nossa História" />
+                </div>
+                <div class="form-field">
+                  <label for="gen-about-text">Texto sobre o negócio</label>
+                  <textarea id="gen-about-text" rows="4" placeholder="Conte a história e os valores do seu negócio..."></textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-star"></i> Depoimentos</h2>
+              <p class="card-desc">Depoimentos de clientes. Máximo 6.</p>
+              <div class="gen-tests-list" id="gen-tests-container"></div>
+              <button class="btn-ghost btn-sm gen-add-btn" onclick="genAddTestimonial()">
+                <i class="ph ph-plus"></i> Adicionar depoimento
+              </button>
+            </div>
+          </div>
+
+          <div class="gen-step-actions">
+            <button class="btn-ghost" onclick="genGoToStep(3)">
+              <i class="ph ph-arrow-left"></i> Voltar
+            </button>
+            <button class="btn-primary" onclick="genGoToStep(5)">
+              Próximo <i class="ph ph-arrow-right"></i>
+            </button>
+          </div>
+        </div><!-- /gen-panel-4 -->
+
+        <!-- ── PAINEL 5: API & Gerar ── -->
+        <div class="tool-body" id="gen-panel-5" hidden>
+          <div class="gen-form">
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-plugs"></i> Conexão com Orbit API</h2>
+              <p class="card-desc">Com a API configurada, os serviços, equipe e agendamentos são carregados automaticamente. Sem API, o site usa dados de demonstração.</p>
+              <div class="form-grid form-grid--1">
+                <div class="form-field">
+                  <label for="gen-api-url">URL da API</label>
+                  <input type="url" id="gen-api-url" placeholder="https://api.useorbit.app" />
+                </div>
+                <div class="form-grid form-grid--2">
+                  <div class="form-field">
+                    <label for="gen-api-key">API Key</label>
+                    <input type="text" id="gen-api-key" placeholder="orbit_key_..." autocomplete="off" />
+                  </div>
+                  <div class="form-field">
+                    <label for="gen-api-secret">API Secret</label>
+                    <input type="password" id="gen-api-secret" placeholder="orbit_secret_..." autocomplete="off" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title"><i class="ph ph-list-checks"></i> Resumo da Configuração</h2>
+              <div id="gen-summary"></div>
+            </div>
+
+            <div class="gen-download-section">
+              <div class="gen-download-card">
+                <div class="gen-download-icon"><i class="ph ph-file-js"></i></div>
+                <div class="gen-download-info">
+                  <h3>siteconfig.js</h3>
+                  <p>Arquivo com todas as suas personalizações. Coloque na pasta raiz do site (junto ao index.html).</p>
+                </div>
+                <button class="btn-primary" onclick="genDownloadConfig()">
+                  <i class="ph ph-download-simple"></i> Baixar Config
+                </button>
+              </div>
+            </div>
+
+            <div class="card gen-instructions">
+              <h2 class="card-title"><i class="ph ph-rocket-launch"></i> Como publicar seu site</h2>
+              <div class="gen-steps-list">
+                <div class="gen-instr-step">
+                  <div class="gen-instr-num">1</div>
+                  <div>
+                    <strong>Baixe o siteconfig.js</strong>
+                    <p>Clique em "Baixar Config" acima para gerar o arquivo com todas as suas personalizações.</p>
+                  </div>
+                </div>
+                <div class="gen-instr-step">
+                  <div class="gen-instr-num">2</div>
+                  <div>
+                    <strong>Receba os arquivos do modelo</strong>
+                    <p>A Orbit enviará a pasta completa do modelo escolhido (Modelo Escuro ou Modelo Claro).</p>
+                  </div>
+                </div>
+                <div class="gen-instr-step">
+                  <div class="gen-instr-num">3</div>
+                  <div>
+                    <strong>Coloque o siteconfig.js na pasta raiz</strong>
+                    <p>Dentro da pasta do site, coloque o arquivo siteconfig.js na pasta principal — mesma pasta do index.html.</p>
+                  </div>
+                </div>
+                <div class="gen-instr-step">
+                  <div class="gen-instr-num">4</div>
+                  <div>
+                    <strong>Publique na sua hospedagem</strong>
+                    <p>Envie todos os arquivos para o servidor. O site já estará configurado com seus dados automaticamente.</p>
+                  </div>
+                </div>
+                <div class="gen-instr-step">
+                  <div class="gen-instr-num">5</div>
+                  <div>
+                    <strong>Conecte ao Orbit API <span style="font-weight:400;color:var(--c-light)">(opcional)</span></strong>
+                    <p>Com as credenciais da API, os serviços e agendamentos são atualizados automaticamente pelo Orbit.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="gen-step-actions">
+            <button class="btn-ghost" onclick="genGoToStep(4)">
+              <i class="ph ph-arrow-left"></i> Voltar
+            </button>
+            <button class="btn-green" onclick="genDownloadConfig()">
+              <i class="ph ph-check-circle"></i> Gerar Site
+            </button>
+          </div>
+        </div><!-- /gen-panel-5 -->
+
+      </div><!-- /tool-generator -->
 
       <!-- ══════════════════ PLACEHOLDER: EM BREVE ══════════════════ -->
       <div class="tool-view hidden" id="tool-coming-soon">
@@ -2167,6 +2587,17 @@
           <input type="url" id="adm-site-url" placeholder="https://exemplo.com.br" />
         </div>
 
+        <div class="adm-divider"></div>
+
+        <!-- ── Permissões de Menu ── -->
+        <div class="form-field">
+          <label>Itens do menu visíveis</label>
+          <p class="adm-nav-perm-hint">Desative para ocultar o item da sidebar deste usuário.</p>
+          <div class="adm-nav-perm-grid" id="adm-nav-perm-grid">
+            <!-- preenchido por admRenderNavPerms() -->
+          </div>
+        </div>
+
         <div class="auth-error" id="adm-site-error" hidden></div>
       </div>
       <div class="sched-booking-modal-footer">
@@ -2392,6 +2823,7 @@
   <script src="assets/js/script.js"></script>
   <script src="assets/js/admin.js"></script>
   <script src="assets/js/auth.js"></script>
+  <script src="assets/js/generator.js"></script>
 
 </body>
 

@@ -117,6 +117,9 @@ function loadTool(toolId, linkEl) {
   if (toolId === 'dashboard') {
     dashboardRender();
   }
+  if (toolId === 'generator') {
+    if (typeof genInit === 'function') genInit();
+  }
 
   if (window.innerWidth <= 768) closeSidebar();
 }
@@ -3209,7 +3212,7 @@ function crmBookFromClient() {
 }
 
 /* Garante a primeira renderização do painel ao carregar se já existirem contatos */
-window.addEventListener('load', () => { setTimeout(() => { renderCRM(); }, 500); });
+window.addEventListener('load', () => { setTimeout(() => { dashboardRender(); }, 500); });
 
 /* ═══════════════════════════════════════════════════════════════
    AGENDAMENTOS — Module

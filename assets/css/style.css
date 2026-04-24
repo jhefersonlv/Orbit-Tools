@@ -112,7 +112,7 @@ input {
   display: none;
 }
 
-@media (max-width: 991px) {
+@media (max-width: 768px) {
   .sidebar-header--mobile-only {
     display: flex;
   }
@@ -5055,6 +5055,97 @@ input {
 }
 .btn-export:hover { background: var(--c-bg); border-color: var(--c-blue); color: var(--c-blue); }
 
+/* ── Nav Permissions Grid ────────────────────────────────────── */
+.adm-nav-perm-hint {
+  font-size: .78rem;
+  color: var(--c-light);
+  margin: 4px 0 12px;
+  line-height: 1.5;
+}
+
+.adm-nav-perm-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.adm-nav-perm-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-bg);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  user-select: none;
+}
+.adm-nav-perm-item:hover {
+  border-color: var(--c-blue);
+  background: var(--c-blue-lt);
+}
+.adm-nav-perm-item.perm-off {
+  background: var(--c-surface);
+  opacity: .6;
+}
+
+.adm-nav-perm-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.adm-nav-perm-left i {
+  font-size: 1.1rem;
+  color: var(--c-blue);
+  flex-shrink: 0;
+}
+.adm-nav-perm-item.perm-off .adm-nav-perm-left i {
+  color: var(--c-light);
+}
+.adm-nav-perm-label {
+  font-size: .8rem;
+  font-weight: 500;
+  color: var(--c-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adm-nav-perm-item.perm-off .adm-nav-perm-label {
+  color: var(--c-light);
+}
+
+/* pill switch */
+.adm-nav-perm-pill {
+  flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--c-green);
+  position: relative;
+  transition: background .2s;
+}
+.adm-nav-perm-item.perm-off .adm-nav-perm-pill {
+  background: var(--c-border);
+}
+.adm-nav-perm-pill::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  transition: transform .2s;
+}
+.adm-nav-perm-item:not(.perm-off) .adm-nav-perm-pill::after {
+  transform: translateX(16px);
+}
+
 /* ── Table ──────────────────────────────────────────────────── */
 .table-wrap {
   background: var(--c-surface);
@@ -7078,5 +7169,171 @@ a.crm-profile-detail:hover { background: #dcfce7; border-color: #bbf7d0; }
   .dash-filter-bar  { padding: 10px 12px; }
   .dash-filter-pill { padding: 5px 10px; font-size: 0.78rem; }
   .dash-detail-card { max-width: 100%; border-radius: var(--radius-md) var(--radius-md) 0 0; max-height: 90vh; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — Complementos
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 768px ──────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* Tool header: área de ações ocupa largura total ao empilhar */
+  .tool-header-right {
+    width: 100%;
+  }
+
+  /* Pill-nav expande para preencher a largura */
+  .pill-nav {
+    width: 100%;
+  }
+
+  .pill-item {
+    flex: 1;
+    text-align: center;
+    padding: 7px 8px;
+    font-size: 0.78rem;
+  }
+
+  /* Botão de ação no cabeçalho da ferramenta */
+  .tool-header-right .btn-export {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Cards: padding reduzido */
+  .card {
+    padding: 16px;
+  }
+
+  /* Clientes — ocultar colunas menos críticas */
+  .clientes-table th:nth-child(3),
+  .clientes-table td:nth-child(3),
+  .clientes-table th:nth-child(4),
+  .clientes-table td:nth-child(4),
+  .clientes-table th:nth-child(6),
+  .clientes-table td:nth-child(6) {
+    display: none;
+  }
+
+  /* Modais com footer de botões: empilhar verticalmente */
+  .disparo-modal-footer {
+    flex-direction: column;
+  }
+
+  .disparo-modal-footer .disparo-btn,
+  .disparo-modal-footer .disparo-btn-secondary {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  /* Footer do modal de agendamento */
+  .sched-booking-modal-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .sched-booking-modal-footer > * {
+    flex: 1;
+    justify-content: center;
+  }
+
+  /* Topbar direita: compactar gap */
+  .topbar-right {
+    gap: 8px;
+  }
+}
+
+/* ── 600px ──────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+
+  /* Clientes — ocultar Plano também em telas muito estreitas */
+  .clientes-table th:nth-child(5),
+  .clientes-table td:nth-child(5) {
+    display: none;
+  }
+
+  /* Pill-items: fonte mínima para caber os rótulos */
+  .pill-item {
+    font-size: 0.72rem;
+    padding: 6px 4px;
+  }
+
+  /* CRM insight cards: 2 colunas em grid */
+  .crm-insights-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+}
+
+/* ── 480px ──────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+
+  /* Content: padding inferior maior para o dock flutuante */
+  .content {
+    padding: 16px 12px 100px;
+  }
+
+  /* Tipografia: títulos compactados */
+  .tool-title {
+    font-size: 1.05rem;
+  }
+
+  .card-title {
+    font-size: 0.78rem;
+  }
+
+  /* Dock flutuante: ocultar rótulo de texto, manter valor */
+  .dock-info-lbl {
+    display: none;
+  }
+
+  /* bk-row (CLT x PJ): colunas menores */
+  .bk-row {
+    grid-template-columns: 1fr 76px 76px;
+    padding: 8px 10px;
+    font-size: 0.72rem;
+  }
+
+  /* Modal disparo: padding interno reduzido */
+  .disparo-modal {
+    padding: 18px 14px;
+  }
+
+  /* Modal KM: já tratado em 600px, mas reforça body */
+  .km-modal-body {
+    padding: 14px;
+  }
+}
+
+/* ── 360px ──────────────────────────────────────────────────── */
+@media (max-width: 360px) {
+
+  /* Topbar: padding mínimo */
+  .topbar {
+    padding: 0 10px;
+  }
+
+  /* Logo: encolhe em telas muito estreitas */
+  .logo {
+    max-width: 88px;
+  }
+
+  .topbar-left {
+    gap: 8px;
+  }
+
+  /* Pill-items: mínimo funcional */
+  .pill-item {
+    font-size: 0.65rem;
+    padding: 5px 3px;
+  }
+
+  /* Card: padding mínimo */
+  .card {
+    padding: 12px;
+  }
 }
 

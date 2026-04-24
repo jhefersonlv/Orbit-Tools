@@ -62,19 +62,33 @@ service cloud.firestore {
 
       /* ── Agendamentos ─────────────────────────────────────────── */
       match /sched_bookings/{bookingId} {
+        /* Dono autenticado: acesso total */
         allow read, write: if request.auth != null && request.auth.uid == uid;
+
+        /* Site externo: leitura pública (necessária para checar horários ocupados) */
+        allow read: if true;
+
+        /* Site externo: criação de agendamento como cliente (com ou sem auth) */
+        allow create: if request.resource.data.source == 'client'
+                      && request.resource.data.keys().hasAll(['clientName', 'date', 'time', 'status']);
       }
 
       match /sched_services/{serviceId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        /* Leitura pública: o site externo precisa dos serviços para o modal de agendamento */
+        allow read:  if true;
+        allow write: if request.auth != null && request.auth.uid == uid;
       }
 
       match /sched_days/{dayId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        /* Leitura pública: o site externo precisa dos dias bloqueados e horários customizados */
+        allow read:  if true;
+        allow write: if request.auth != null && request.auth.uid == uid;
       }
 
       match /sched_config/{docId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        /* Leitura pública: o site externo precisa dos dias/horários de funcionamento */
+        allow read:  if true;
+        allow write: if request.auth != null && request.auth.uid == uid;
       }
 
       /* ── Templates de Disparo ────────────────────────────────── */

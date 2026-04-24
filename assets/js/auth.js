@@ -252,6 +252,19 @@ function authCompleteOnboarding() {
 }
 
 /* ─── Verifica se onboarding foi concluído ────────────────────── */
+const _ADM_NAV_CONFIGURABLE = [
+  'dashboard', 'crm', 'clientes', 'disparo', 'clt-pj', 'km-calc', 'planos', 'generator'
+];
+
+function _applyNavPermissions(perms) {
+  _ADM_NAV_CONFIGURABLE.forEach(tool => {
+    const el = document.getElementById('nav-item-' + tool);
+    if (!el) return;
+    /* undefined/missing → visível por padrão */
+    el.hidden = perms[tool] === false;
+  });
+}
+
 function _checkOnboarding(user, openModalIfNeeded) {
   db.collection('users').doc(user.uid).get()
     .then(snap => {
@@ -260,6 +273,9 @@ function _checkOnboarding(user, openModalIfNeeded) {
       /* Atualiza plano global */
       _userPlan = data.plan || 'free';
       if (typeof _disparoUpdateLimitBar === 'function') _disparoUpdateLimitBar();
+
+      /* Aplica permissões de nav configuradas pelo admin */
+      _applyNavPermissions(data.navPermissions || {});
 
       /* Exibe Agendamentos só para contas com site ativo */
       const navSched = document.getElementById('nav-item-sched');
@@ -295,6 +311,8 @@ function authLogout() {
     if (typeof cltHistory        !== 'undefined') { cltHistory        = []; typeof updateCltBadge    === 'function' && updateCltBadge();      typeof renderHistoryCLT === 'function' && renderHistoryCLT(); }
     if (typeof disparoContacts   !== 'undefined') { disparoContacts   = []; typeof disparoUpdateStats === 'function' && disparoUpdateStats(); typeof disparoFilter    === 'function' && disparoFilter();    }
     if (typeof _disparoUpdateLimitBar === 'function') _disparoUpdateLimitBar();
+    /* Restaura visibilidade dos itens configuráveis */
+    _applyNavPermissions({});
     /* Oculta Agendamentos e Admin */
     const navSched  = document.getElementById('nav-item-sched');
     if (navSched) navSched.hidden = true;

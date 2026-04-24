@@ -5,9 +5,24 @@
 
 'use strict';
 
-let _admUsers      = [];
+let _admUsers       = [];
 let _admSiteHasSite = false;
 let _admPlan        = 'free';
+
+/* ─── Itens configuráveis do menu (tool → label + ícone) ───── */
+const ADM_NAV_ITEMS = [
+  { tool: 'dashboard', label: 'Dashboard',         icon: 'ph-chart-pie'      },
+  { tool: 'crm',       label: 'CRM & Leads',       icon: 'ph-kanban'         },
+  { tool: 'clientes',  label: 'Clientes',           icon: 'ph-users-three'    },
+  { tool: 'disparo',   label: 'Disparo WhatsApp',   icon: 'ph-whatsapp-logo'  },
+  { tool: 'clt-pj',   label: 'Custo CLT x PJ',     icon: 'ph-scales'         },
+  { tool: 'km-calc',  label: 'Calc. de KM',         icon: 'ph-car'            },
+  { tool: 'planos',    label: 'Planos',             icon: 'ph-squares-four'   },
+  { tool: 'generator', label: 'Gerador de Sites',   icon: 'ph-magic-wand'     },
+];
+
+/* Estado local das permissões do usuário em edição */
+let _admNavPerms = {};   /* { dashboard: true, crm: true, ... } true = visível */
 
 /* ═══════════════════════════════════════════════════════════════
    CARREGAR USUÁRIOS
@@ -107,6 +122,8 @@ function admRenderTable(users) {
     const avatarBg  = _admAvatarColor(u.uid || '');
     const hasSite   = !!u.hasSite;
     const siteUrl   = u.siteUrl || '';
+    const navPerms  = u.navPermissions && typeof u.navPermissions === 'object' ? u.navPermissions : null;
+    const hiddenCnt = navPerms ? ADM_NAV_ITEMS.filter(i => navPerms[i.tool] === false).length : 0;
 
     /* Serializa dados para o onclick sem quebrar as aspas */
     const data = _admEsc(JSON.stringify({ uid: u.uid, name, plan, hasSite, siteUrl }));
@@ -148,6 +165,9 @@ function admRenderTable(users) {
         <button class="adm-edit-btn" onclick="admOpenEditModal('${_admEsc(u.uid)}')">
           <i class="ph ph-pencil-simple"></i> Editar
         </button>
+        ${hiddenCnt > 0
+          ? `<div style="font-size:.72rem;color:var(--c-light);margin-top:4px"><i class="ph ph-eye-slash"></i> ${hiddenCnt} oculto${hiddenCnt > 1 ? 's' : ''}</div>`
+          : ''}
       </td>
     </tr>`;
   }).join('');
@@ -190,6 +210,47 @@ function admExportCSV() {
    MODAL — EDITAR USUÁRIO
    ═══════════════════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════════════════
+   PERMISSÕES DE MENU (nav-items por usuário)
+   ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Renderiza o grid de toggles no modal de edição.
+ * Lê _admNavPerms para o estado inicial de cada item.
+ */
+function admRenderNavPerms() {
+  const grid = document.getElementById('adm-nav-perm-grid');
+  if (!grid) return;
+
+  grid.innerHTML = ADM_NAV_ITEMS.map(({ tool, label, icon }) => {
+    const visible = _admNavPerms[tool] !== false; // default true
+    return `
+      <div class="adm-nav-perm-item ${visible ? '' : 'perm-off'}"
+           id="adm-perm-item-${tool}"
+           onclick="admToggleNavPerm('${tool}')"
+           title="${label}">
+        <div class="adm-nav-perm-left">
+          <i class="ph ${icon}"></i>
+          <span class="adm-nav-perm-label">${label}</span>
+        </div>
+        <div class="adm-nav-perm-pill"></div>
+      </div>`;
+  }).join('');
+}
+
+/** Alterna visibilidade de um item e atualiza o estado local. */
+function admToggleNavPerm(tool) {
+  const current  = _admNavPerms[tool] !== false; // true se visível
+  _admNavPerms[tool] = !current;
+
+  const item = document.getElementById(`adm-perm-item-${tool}`);
+  if (item) item.classList.toggle('perm-off', current);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MODAL — EDITAR USUÁRIO
+   ═══════════════════════════════════════════════════════════════ */
+
 function admOpenEditModal(uid) {
   const u = _admUsers.find(x => x.uid === uid);
   if (!u) return;
@@ -197,14 +258,21 @@ function admOpenEditModal(uid) {
   _admSiteHasSite = !!u.hasSite;
   _admPlan        = u.plan === 'orbit' ? 'orbit' : 'free';
 
-  document.getElementById('adm-site-uid').value              = uid;
-  document.getElementById('adm-site-modal-title').textContent = u.email || u.name || uid;
-  document.getElementById('adm-site-url').value              = u.siteUrl || '';
-  document.getElementById('adm-site-error').hidden           = true;
+  /* Carrega permissões salvas, ou padrão (todos visíveis) */
+  _admNavPerms = {};
+  if (u.navPermissions && typeof u.navPermissions === 'object') {
+    Object.assign(_admNavPerms, u.navPermissions);
+  }
+
+  document.getElementById('adm-site-uid').value               = uid;
+  document.getElementById('adm-site-modal-title').textContent  = u.email || u.name || uid;
+  document.getElementById('adm-site-url').value               = u.siteUrl || '';
+  document.getElementById('adm-site-error').hidden            = true;
 
   _admUpdatePlanBtns(_admPlan);
   _admUpdateSiteStatusBtns(_admSiteHasSite);
   _admToggleSiteUrlField(_admSiteHasSite);
+  admRenderNavPerms();
 
   document.getElementById('adm-site-modal').classList.add('open');
 }
@@ -293,10 +361,10 @@ function admSaveSiteConfig() {
   saveBtn.disabled  = true;
   saveBtn.innerHTML = '<i class="ph ph-circle-notch adm-spinning"></i> Salvando...';
 
-  db.collection('users').doc(uid).update({ plan, hasSite, siteUrl })
+  db.collection('users').doc(uid).update({ plan, hasSite, siteUrl, navPermissions: _admNavPerms })
     .then(() => {
       const u = _admUsers.find(x => x.uid === uid);
-      if (u) { u.plan = plan; u.hasSite = hasSite; u.siteUrl = siteUrl; }
+      if (u) { u.plan = plan; u.hasSite = hasSite; u.siteUrl = siteUrl; u.navPermissions = { ..._admNavPerms }; }
       admUpdateStats(_admUsers);
       admRenderTable(_admUsers);
       admCloseSiteModal();
