@@ -39,6 +39,11 @@ service cloud.firestore {
       match /customers/{customerId} {
         allow read, write: if request.auth != null && request.auth.uid == uid;
 
+        /* Portal da Área do Cliente (auth anônimo):
+           permite leitura dos clientes do tenant para exibir plano via lookup por telefone.
+           Apenas para o tenant com site ativo (TENANT_UID hard-coded no cliente).        */
+        allow read: if request.auth != null && uid == 'pjk70Jv4anW2ve4aWFdb8dqCpSv2';
+
         /* Histórico de funil (subcoleção imutável por clientes) */
         match /history/{entryId} {
           allow read:   if request.auth != null && request.auth.uid == uid;
@@ -69,8 +74,14 @@ service cloud.firestore {
         allow read: if true;
 
         /* Site externo: criação de agendamento como cliente (com ou sem auth) */
-        allow create: if request.resource.data.source == 'client'
+        allow create: if (request.resource.data.source == 'client'
+                          || request.resource.data.source == 'client_area')
                       && request.resource.data.keys().hasAll(['clientName', 'date', 'time', 'status']);
+
+        /* Área do Cliente: atualizar creditDeducted quando crédito for descontado */
+        allow update: if request.auth != null
+                      && uid == 'pjk70Jv4anW2ve4aWFdb8dqCpSv2'
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['creditDeducted','updatedAt']);
       }
 
       match /sched_services/{serviceId} {

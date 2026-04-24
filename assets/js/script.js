@@ -3959,7 +3959,30 @@ function schedSaveBooking() {
            }
         }
 
-        if (hasActivePlan) {
+        /* Agendamentos da Área do Cliente (planCredit=true): desconta crédito automaticamente */
+        const _isPlanCreditBk = oldBooking && oldBooking.planCredit === true && !oldBooking.creditDeducted;
+
+        if (_isPlanCreditBk && hasActivePlan) {
+          const _sub  = c.subscription;
+          const _used = _sub.usedCredits  || 0;
+          const _tot  = _sub.totalCredits || 1;
+          if (_used >= _tot) {
+            if (typeof orbitAlert === 'function') {
+              orbitAlert(
+                'Os créditos deste ciclo já foram todos utilizados!\n' +
+                'O agendamento foi concluído mas o crédito não pôde ser descontado.\n' +
+                'Registre uma venda avulsa ou renove o plano do cliente.',
+                'Limite Atingido'
+              );
+            }
+          } else {
+            planUseCreditUI(finalCustomerId);
+            /* Marca o agendamento como crédito descontado (evita duplo desconto) */
+            db.collection('users').doc(uid).collection('sched_bookings').doc(finalBookingId)
+              .update({ creditDeducted: true, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+              .catch(() => {});
+          }
+        } else if (hasActivePlan) {
           orbitConfirm(`O cliente "${c.name}" possui o plano ativo "${c.subscription.planName}".\nDeseja utilizar um crédito do plano em vez de cobrar avulso?`, false, 'Utilizar Crédito do Plano', 'Usar Crédito', 'Cobrar Avulso')
             .then(useCredit => {
               if (useCredit) {
