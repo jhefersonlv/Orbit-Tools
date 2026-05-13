@@ -7,107 +7,92 @@ service cloud.firestore {
        WordVirtua · 2026
 
        Modelo multi-tenant:
-         users/{uid}/...  → cada usuário acessa apenas os seus dados
-         Admins (plan = 'orbit') podem ler dados de outros UIDs via
-         tenant switcher — isso é gerenciado no front-end pelo campo
-         activeTenantUid; as regras aqui garantem que o admin
-         (currentUser) seja dono da conta raiz (users/{uid}).
+         users/{uid}/...  → dono ou membro de equipe autorizado
+         teamByEmail/{email} → mapeamento email → uid do dono
     ─────────────────────────────────────────────────────────────── */
 
-    /* ── Regra base: bloqueia tudo por padrão ──────────────────── */
+    /* ── Bloqueia tudo por padrão ──────────────────────────────── */
     match /{document=**} {
       allow read, write: if false;
     }
 
-    /* ── Helper: verifica se o solicitante é super-admin ───────── */
+    /* ── Helpers ────────────────────────────────────────────────── */
+
     function isAdmin() {
       let u = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return request.auth != null && (u.isAdmin == true || u.IsAdmin == true);
     }
 
+    /* Retorna true se o usuário logado é membro autorizado da equipe do dono (uid) */
+    function isTeamMemberOf(uid) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/teamByEmail/$(request.auth.token.email))
+        && uid in get(/databases/$(database)/documents/teamByEmail/$(request.auth.token.email)).data.ownerUids;
+    }
+
     /* ── Dados do próprio usuário ──────────────────────────────── */
     match /users/{uid} {
-      /* Leitura: próprio usuário ou super-admin (para admLoadUsers) */
-      allow read: if request.auth != null &&
-        (request.auth.uid == uid || isAdmin());
+      allow read:  if request.auth != null && (request.auth.uid == uid || isAdmin() || isTeamMemberOf(uid));
+      allow write: if request.auth != null && (request.auth.uid == uid || isAdmin() || isTeamMemberOf(uid));
 
-      /* Escrita: próprio usuário ou super-admin (para admSaveSiteConfig) */
-      allow write: if request.auth != null &&
-        (request.auth.uid == uid || isAdmin());
-
-      /* ── customers (SSOT — CRM de Governança) ───────────────── */
+      /* ── CRM / Clientes (SSOT) ──────────────────────────────── */
       match /customers/{customerId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read, write: if request.auth != null && (request.auth.uid == uid || isTeamMemberOf(uid));
 
-        /* Portal da Área do Cliente (auth anônimo):
-           permite leitura dos clientes do tenant para exibir plano via lookup por telefone.
-           Apenas para o tenant com site ativo (TENANT_UID hard-coded no cliente).        */
-        allow read: if request.auth != null && uid == 'pjk70Jv4anW2ve4aWFdb8dqCpSv2';
-
-        /* Histórico de funil (subcoleção imutável por clientes) */
         match /history/{entryId} {
-          allow read:   if request.auth != null && request.auth.uid == uid;
-          /* Escrita: apenas criação — ninguém apaga o audit trail */
-          allow create: if request.auth != null && request.auth.uid == uid;
+          allow read:   if request.auth != null && (request.auth.uid == uid || isTeamMemberOf(uid));
+          allow create: if request.auth != null && (request.auth.uid == uid || isTeamMemberOf(uid));
           allow update, delete: if false;
         }
 
-        /* Histórico de cobranças (imutável) */
         match /billingHistory/{entryId} {
-          allow read:   if request.auth != null && request.auth.uid == uid;
-          allow create: if request.auth != null && request.auth.uid == uid;
+          allow read:   if request.auth != null && (request.auth.uid == uid || isTeamMemberOf(uid));
+          allow create: if request.auth != null && (request.auth.uid == uid || isTeamMemberOf(uid));
           allow update, delete: if false;
         }
       }
 
-      /* ── Catálogo de Templates de Planos ─────────────────────── */
+      /* ── Planos/Templates ───────────────────────────────────── */
       match /planTemplates/{templateId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read, write: if request.auth != null && (request.auth.uid == uid || isTeamMemberOf(uid));
       }
 
-      /* ── Agendamentos ─────────────────────────────────────────── */
+      /* ── Agendamentos ──────────────────────────────────────────── */
       match /sched_bookings/{bookingId} {
-        /* Dono autenticado: acesso total */
-        allow read, write: if request.auth != null && request.auth.uid == uid;
-
-        /* Site externo: leitura pública (necessária para checar horários ocupados) */
-        allow read: if true;
-
-        /* Site externo: criação de agendamento como cliente (com ou sem auth) */
+        allow read, write: if request.auth != null && (request.auth.uid == uid || isTeamMemberOf(uid));
+        allow read:   if true;
         allow create: if (request.resource.data.source == 'client'
                           || request.resource.data.source == 'client_area')
                       && request.resource.data.keys().hasAll(['clientName', 'date', 'time', 'status']);
-
-        /* Área do Cliente: atualizar creditDeducted quando crédito for descontado */
         allow update: if request.auth != null
                       && uid == 'pjk70Jv4anW2ve4aWFdb8dqCpSv2'
                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['creditDeducted','updatedAt']);
+        allow update: if request.auth != null
+                      && uid == 'pjk70Jv4anW2ve4aWFdb8dqCpSv2'
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['renewalRequest','updatedAt']);
       }
 
       match /sched_services/{serviceId} {
-        /* Leitura pública: o site externo precisa dos serviços para o modal de agendamento */
         allow read:  if true;
-        allow write: if request.auth != null && request.auth.uid == uid;
+        allow write: if request.auth != null && (request.auth.uid == uid || isTeamMemberOf(uid));
       }
 
       match /sched_days/{dayId} {
-        /* Leitura pública: o site externo precisa dos dias bloqueados e horários customizados */
         allow read:  if true;
-        allow write: if request.auth != null && request.auth.uid == uid;
+        allow write: if request.auth != null && (request.auth.uid == uid || isTeamMemberOf(uid));
       }
 
       match /sched_config/{docId} {
-        /* Leitura pública: o site externo precisa dos dias/horários de funcionamento */
         allow read:  if true;
-        allow write: if request.auth != null && request.auth.uid == uid;
+        allow write: if request.auth != null && (request.auth.uid == uid || isTeamMemberOf(uid));
       }
 
-      /* ── Templates de Disparo ────────────────────────────────── */
+      /* ── Disparo Templates ──────────────────────────────────── */
       match /disparo_templates/{tmplId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read, write: if request.auth != null && (request.auth.uid == uid || isTeamMemberOf(uid));
       }
 
-      /* ── Histórico de Calculadoras ───────────────────────────── */
+      /* ── Calculadoras (pessoal — não compartilhado) ─────────── */
       match /km_history/{entryId} {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
@@ -116,17 +101,33 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
 
-      /* ── Configurações ───────────────────────────────────────── */
       match /settings/{settingId} {
         allow read, write: if request.auth != null && request.auth.uid == uid;
       }
 
-      /* ── disparo_contacts (legado — mantido como backup) ──────── */
+      /* ── disparo_contacts (legado) ──────────────────────────── */
       match /disparo_contacts/{contactId} {
-        allow read: if request.auth != null && request.auth.uid == uid;
-        /* Bloqueia novas escritas — use customers */
+        allow read:  if request.auth != null && (request.auth.uid == uid || isTeamMemberOf(uid));
         allow write: if false;
       }
+    }
+
+    /* ── Kanban de Tarefas ─────────────────────────────────────── */
+    match /kanban/{uid} {
+      allow read, write: if request.auth != null && (request.auth.uid == uid || isTeamMemberOf(uid));
+    }
+
+    /* ── Log de Atividades do Kanban ──────────────────────────── */
+    match /kanbanActivity/{uid}/entries/{entryId} {
+      allow read, delete: if request.auth != null && (request.auth.uid == uid || isTeamMemberOf(uid));
+      allow create:       if request.auth != null && (request.auth.uid == uid || isTeamMemberOf(uid));
+      allow update:       if false;
+    }
+
+    /* ── Mapeamento de equipe por e-mail ──────────────────────── */
+    match /teamByEmail/{email} {
+      allow read:  if request.auth != null && request.auth.token.email == email;
+      allow write: if request.auth != null;
     }
   }
 }

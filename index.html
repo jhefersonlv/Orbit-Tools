@@ -38,6 +38,10 @@
         <i class="ph ph-chart-pie"></i>
         <span>Dashboard</span>
       </a>
+      <a href="#" class="nav-item" id="nav-item-kanban" data-tool="kanban" onclick="loadTool('kanban', this)">
+        <i class="ph ph-note-pencil"></i>
+        <span>Minhas Tarefas</span>
+      </a>
       <a href="#" class="nav-item" id="nav-item-crm" data-tool="crm" onclick="loadTool('crm', this)">
         <i class="ph ph-kanban"></i>
         <span>CRM & Leads</span>
@@ -69,6 +73,11 @@
       <a href="#" class="nav-item" id="nav-item-generator" data-tool="generator" onclick="loadTool('generator', this)">
         <i class="ph ph-magic-wand"></i>
         <span>Gerador de Sites</span>
+      </a>
+
+      <a href="#" class="nav-item" id="nav-item-equipe" data-tool="equipe" onclick="loadTool('equipe', this)">
+        <i class="ph ph-user-plus"></i>
+        <span>Minha Equipe</span>
       </a>
 
     </nav>
@@ -2108,6 +2117,119 @@
 
       </div><!-- /tool-generator -->
 
+      <!-- ══════════════════ TOOL: MINHAS TAREFAS (KANBAN) ══════════════════ -->
+      <div class="tool-view hidden" id="tool-kanban">
+
+        <div class="tool-header">
+          <div class="tool-header-left">
+            <h1 class="tool-title">Minhas Tarefas</h1>
+            <nav class="breadcrumb-mini">
+              <a href="#">Início</a>
+              <i class="ph ph-caret-right"></i>
+              <span class="breadcrumb-current-mini">Kanban</span>
+            </nav>
+          </div>
+        </div>
+
+        <p class="tool-desc">Organize suas tarefas em colunas, adicione checklists e acompanhe o progresso de cada uma.</p>
+
+        <div class="kb-board-wrap">
+          <div class="kb-board" id="kb-board"></div>
+        </div>
+
+        <!-- Histórico de atividades -->
+        <div class="kb-activity-section">
+          <button class="kb-activity-header" onclick="kbToggleActivity()">
+            <div class="kb-activity-header-left">
+              <i class="ph ph-clock-clockwise"></i>
+              <span>Histórico de atividades</span>
+              <span class="kb-activity-badge" id="kb-activity-badge" hidden>0</span>
+            </div>
+            <i class="ph ph-caret-down" id="kb-activity-caret" style="transition:transform .2s"></i>
+          </button>
+          <div class="kb-activity-body" id="kb-activity-body" hidden>
+            <div id="kb-activity-list">
+              <p class="kb-act-empty">Nenhuma atividade ainda.</p>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /tool-kanban -->
+
+      <!-- ══════════════════ TOOL: MINHA EQUIPE ══════════════════ -->
+      <div class="tool-view hidden" id="tool-equipe">
+
+        <div class="tool-header">
+          <div class="tool-header-left">
+            <h1 class="tool-title">Minha Equipe</h1>
+            <nav class="breadcrumb-mini">
+              <a href="#">Início</a>
+              <i class="ph ph-caret-right"></i>
+              <span class="breadcrumb-current-mini">Equipe</span>
+            </nav>
+          </div>
+        </div>
+
+        <p class="tool-desc">Crie uma conta para seu membro de equipe e passe o e-mail e senha para ele. Ele vai entrar no Orbit Tools e verá suas tarefas e agendamentos no seletor de conta.</p>
+
+        <!-- Formulário de criação de conta -->
+        <div class="team-invite-card">
+          <div class="team-invite-card-header">
+            <i class="ph ph-user-plus" style="color:var(--c-blue);font-size:20px"></i>
+            <span>Criar conta para um membro</span>
+          </div>
+
+          <div class="team-invite-form">
+            <div class="team-form-grid">
+
+              <div class="form-field">
+                <label for="team-input-name">Nome completo</label>
+                <input type="text" id="team-input-name" placeholder="Ex: Carlos Silva" autocomplete="off" />
+              </div>
+
+              <div class="form-field">
+                <label for="team-input-email">E-mail</label>
+                <input type="email" id="team-input-email" placeholder="Ex: carlos@empresa.com" autocomplete="off" />
+              </div>
+
+              <div class="form-field">
+                <label for="team-input-password">Senha</label>
+                <div class="team-pass-wrap">
+                  <input type="password" id="team-input-password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+                  <button type="button" class="team-pass-toggle" onclick="teamTogglePassword()" title="Mostrar/ocultar senha">
+                    <i class="ph ph-eye" id="team-pass-icon"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="team-form-btn-wrap">
+                <button class="btn-calc" id="team-btn-create" onclick="teamCreateAccount()" style="width:100%;padding:11px 18px">
+                  <i class="ph ph-user-plus"></i> Criar conta
+                </button>
+              </div>
+
+            </div>
+
+            <p class="auth-error" id="team-add-error" hidden style="margin-top:10px"></p>
+
+            <div class="team-success-msg" id="team-success-msg" hidden style="margin-top:12px"></div>
+          </div>
+
+          <div class="team-invite-info">
+            <i class="ph ph-info"></i>
+            <span>A conta é criada sem deslogar você. Depois é só passar o <strong>e-mail e senha</strong> para o membro entrar.</span>
+          </div>
+        </div>
+
+        <!-- Lista de membros -->
+        <div class="team-section-title">
+          <i class="ph ph-users-three"></i>
+          Membros da equipe
+        </div>
+        <div id="team-members-list"></div>
+
+      </div><!-- /tool-equipe -->
+
       <!-- ══════════════════ PLACEHOLDER: EM BREVE ══════════════════ -->
       <div class="tool-view hidden" id="tool-coming-soon">
         <div class="tool-header">
@@ -2824,6 +2946,8 @@
   <script src="assets/js/admin.js"></script>
   <script src="assets/js/auth.js"></script>
   <script src="assets/js/generator.js"></script>
+  <script src="assets/js/kanban.js"></script>
+  <script src="assets/js/team.js"></script>
 
 </body>
 

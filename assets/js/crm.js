@@ -98,6 +98,14 @@ function crmLoadCustomers(uid) {
           reuniaoTime:      d.reuniaoTime        || null,
           reuniaoBookingId: d.reuniaoBookingId   || null,
           createdAt:        d.createdAt          ? d.createdAt.toDate()          : null,
+          renewalRequest:   d.renewalRequest ? {
+            status:      d.renewalRequest.status      || null,
+            requestedAt: d.renewalRequest.requestedAt
+                           ? d.renewalRequest.requestedAt.toDate() : null,
+            planId:      d.renewalRequest.planId      || '',
+            planName:    d.renewalRequest.planName    || '',
+            price:       d.renewalRequest.price       || 0,
+          } : null,
           subscription:     d.subscription ? {
             planId:          d.subscription.planId          || '',
             planName:        d.subscription.planName        || '',
@@ -122,9 +130,11 @@ function crmLoadCustomers(uid) {
       if (typeof _updateTagFilterChips  === 'function') _updateTagFilterChips();
       if (typeof renderCRM              === 'function') renderCRM();
       if (typeof clientesRenderTable    === 'function') clientesRenderTable();
+      if (typeof dashboardRender        === 'function') dashboardRender();
       planCheckExpiredLocally();
       crmRenderInsights();
       planTemplatesLoad(uid);
+      crmSubscribePendingRenewals(uid);
     })
     .catch(err => console.error('[CRM] crmLoadCustomers erro:', err));
 }
@@ -859,10 +869,35 @@ function clientesRenderTable() {
 function _planCell(c) {
   const sub = c.subscription;
   const now = new Date();
+  const esc = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  /* Banner de renovação pendente (exibido antes de qualquer estado do plano) */
+  const renewReq = c.renewalRequest;
+  const hasPendingRenewal = renewReq && renewReq.status === 'pending';
+  const renewalBanner = hasPendingRenewal ? `
+    <div class="plan-renewal-banner">
+      <div class="plan-renewal-top">
+        <i class="ph ph-clock-countdown"></i>
+        <span>Renovação solicitada pelo cliente</span>
+      </div>
+      <div class="plan-renewal-price">R$ ${(renewReq.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+      <div class="plan-renewal-actions">
+        <button class="plan-renewal-btn plan-renewal-btn--accept"
+                onclick="planAcceptRenewal('${c.id}')"
+                title="Confirmar pagamento e renovar plano">
+          <i class="ph ph-check-circle"></i> Aceitar
+        </button>
+        <button class="plan-renewal-btn plan-renewal-btn--reject"
+                onclick="planRejectRenewal('${c.id}')"
+                title="Recusar renovação">
+          <i class="ph ph-x-circle"></i> Recusar
+        </button>
+      </div>
+    </div>` : '';
 
   /* Sem plano ou cancelado */
   if (!sub || sub.status === 'canceled') {
-    return `<button class="plan-add-btn" onclick="planOpenModal('${c.id}')" title="Criar plano">
+    return renewalBanner + `<button class="plan-add-btn" onclick="planOpenModal('${c.id}')" title="Criar plano">
               <i class="ph ph-plus"></i> Plano
             </button>`;
   }
@@ -878,7 +913,6 @@ function _planCell(c) {
   const total = sub.totalCredits || 1;
   const pct   = Math.min(100, Math.round((used / total) * 100));
   const full  = used >= total;
-  const esc   = s => (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
   const statusLabel = isExpired        ? 'Expirado'
                     : sub.status === 'overdue'   ? 'Atrasado'
@@ -899,7 +933,7 @@ function _planCell(c) {
 
   const canUse = !full && !isExpired && sub.status === 'active';
 
-  return `
+  return renewalBanner + `
     <div class="plan-cell ${isExpired ? 'plan-cell--expired' : isExpiringSoon ? 'plan-cell--expiring' : ''}">
       <div class="plan-cell-top">
         <span class="plan-name-lbl">${esc(sub.planName)}</span>
@@ -1412,4 +1446,110 @@ function planRenderBillingDashboard() {
         }).join('')}
       </div>`;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENOVAÇÃO DE PLANO PELO CLIENTE (Portal Área do Cliente)
+   ═══════════════════════════════════════════════════════════════ */
+
+let _renewalSnapshotUnsub = null; /* referência para cancelar o listener */
+
+/**
+ * Listener em tempo real: atualiza disparoContacts quando um cliente
+ * solicita renovação de plano via portal. Exibe notificação e re-renderiza
+ * a tabela de clientes automaticamente.
+ */
+function crmSubscribePendingRenewals(uid) {
+  if (!uid) return;
+
+  /* Cancela listener anterior (para evitar duplicatas ao trocar tenant) */
+  if (_renewalSnapshotUnsub) { _renewalSnapshotUnsub(); _renewalSnapshotUnsub = null; }
+
+  _renewalSnapshotUnsub = db.collection('users').doc(uid).collection('customers')
+    .where('renewalRequest.status', '==', 'pending')
+    .onSnapshot(snap => {
+      snap.docChanges().forEach(change => {
+        if (change.type !== 'added' && change.type !== 'modified') return;
+
+        const d   = change.doc.data();
+        const idx = (typeof disparoContacts !== 'undefined' ? disparoContacts : [])
+          .findIndex(c => c.id === change.doc.id);
+
+        if (idx >= 0) {
+          disparoContacts[idx].renewalRequest = d.renewalRequest ? {
+            status:      d.renewalRequest.status      || null,
+            requestedAt: d.renewalRequest.requestedAt ? d.renewalRequest.requestedAt.toDate() : null,
+            planId:      d.renewalRequest.planId      || '',
+            planName:    d.renewalRequest.planName    || '',
+            price:       d.renewalRequest.price       || 0,
+          } : null;
+        }
+
+        if (typeof clientesRenderTable    === 'function') clientesRenderTable();
+        if (typeof planRenderBillingDashboard === 'function') planRenderBillingDashboard();
+
+        /* Toast de notificação apenas para solicitações novas */
+        if (change.type === 'added') {
+          const nome = d.name ? d.name.split(' ')[0] : 'Cliente';
+          const plan = d.renewalRequest ? d.renewalRequest.planName : '';
+          if (typeof disparoShowToast === 'function') {
+            disparoShowToast(`💳 ${nome} solicitou renovação do plano${plan ? ' "' + plan + '"' : ''}.`);
+          }
+        }
+      });
+    }, err => console.error('[CRM] crmSubscribePendingRenewals erro:', err));
+}
+
+/**
+ * Aceita a renovação: chama planResetCycle e limpa a solicitação.
+ */
+function planAcceptRenewal(customerId) {
+  if (!currentUser) return;
+  const uid = (typeof activeTenantUid !== 'undefined' && activeTenantUid) ? activeTenantUid : currentUser.uid;
+  const c   = (typeof disparoContacts !== 'undefined' ? disparoContacts : []).find(x => x.id === customerId);
+  if (!c) return;
+
+  planResetCycle(uid, customerId, currentUser.uid)
+    .then(() => {
+      /* Limpa a solicitação de renovação */
+      return db.collection('users').doc(uid).collection('customers').doc(customerId).update({
+        renewalRequest: firebase.firestore.FieldValue.delete(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    })
+    .then(() => {
+      /* Atualiza memória local */
+      if (c) c.renewalRequest = null;
+      if (typeof clientesRenderTable       === 'function') clientesRenderTable();
+      if (typeof planRenderBillingDashboard === 'function') planRenderBillingDashboard();
+      if (typeof disparoShowToast          === 'function') disparoShowToast(`Plano de ${c.name} renovado!`);
+    })
+    .catch(err => {
+      console.error('[CRM] planAcceptRenewal erro:', err);
+      if (typeof disparoShowToast === 'function') disparoShowToast('Erro ao renovar plano.', true);
+    });
+}
+
+/**
+ * Recusa a renovação: marca renewalRequest.status como 'rejected'.
+ */
+function planRejectRenewal(customerId) {
+  if (!currentUser) return;
+  const uid = (typeof activeTenantUid !== 'undefined' && activeTenantUid) ? activeTenantUid : currentUser.uid;
+  const c   = (typeof disparoContacts !== 'undefined' ? disparoContacts : []).find(x => x.id === customerId);
+  if (!c) return;
+
+  db.collection('users').doc(uid).collection('customers').doc(customerId).update({
+    'renewalRequest.status': 'rejected',
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+  })
+  .then(() => {
+    if (c && c.renewalRequest) c.renewalRequest.status = 'rejected';
+    if (typeof clientesRenderTable === 'function') clientesRenderTable();
+    if (typeof disparoShowToast    === 'function') disparoShowToast(`Renovação de ${c.name} recusada.`);
+  })
+  .catch(err => {
+    console.error('[CRM] planRejectRenewal erro:', err);
+    if (typeof disparoShowToast === 'function') disparoShowToast('Erro ao recusar renovação.', true);
+  });
 }

@@ -120,6 +120,12 @@ function loadTool(toolId, linkEl) {
   if (toolId === 'generator') {
     if (typeof genInit === 'function') genInit();
   }
+  if (toolId === 'kanban') {
+    if (typeof kbInit === 'function') kbInit();
+  }
+  if (toolId === 'equipe') {
+    if (typeof teamInit === 'function') teamInit();
+  }
 
   if (window.innerWidth <= 768) closeSidebar();
 }
@@ -1051,7 +1057,7 @@ function disparoOpenWhatsApp(id) {
   c.messages.push(entry);
 
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
+    db.collection('users').doc(_ownerUid()).collection('customers').doc(String(id))
       .update({ messages: c.messages, updatedBy: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => { });
   }
 
@@ -1066,7 +1072,7 @@ function disparoMarkSent(id) {
   if (!c) return;
   c.status = 'sent';
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
+    db.collection('users').doc(_ownerUid()).collection('customers').doc(String(id))
       .update({ status: 'sent', updatedBy: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => { });
   }
   disparoUpdateStats(); disparoSelectContact(id); disparoFilter();
@@ -1077,7 +1083,7 @@ function disparoMarkPending(id) {
   if (!c) return;
   c.status = 'pending';
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
+    db.collection('users').doc(_ownerUid()).collection('customers').doc(String(id))
       .update({ status: 'pending', updatedBy: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => { });
   }
   disparoUpdateStats(); disparoSelectContact(id); disparoFilter();
@@ -1086,7 +1092,7 @@ function disparoMarkPending(id) {
 function disparoRemoveContact(id) {
   if (!confirm('Remover este contato?')) return;
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
+    db.collection('users').doc(_ownerUid()).collection('customers').doc(String(id))
       .delete().catch(() => { });
   }
   disparoContacts = disparoContacts.filter(c => String(c.id) !== String(id));
@@ -1391,7 +1397,7 @@ function disparoSaveNote(id) {
   };
 
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
+    db.collection('users').doc(_ownerUid()).collection('customers').doc(String(id))
       .update({ notes: c.notes, updatedBy: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).then(ok).catch(fail);
   } else {
     ok();
@@ -1419,7 +1425,7 @@ function disparoAddTag(id) {
   input.value = '';
 
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
+    db.collection('users').doc(_ownerUid()).collection('customers').doc(String(id))
       .update({ tags: c.tags, updatedBy: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => { });
   }
 
@@ -1433,7 +1439,7 @@ function disparoRemoveTag(id, tag) {
   c.tags = (c.tags || []).filter(t => t !== tag);
 
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('customers').doc(String(id))
+    db.collection('users').doc(_ownerUid()).collection('customers').doc(String(id))
       .update({ tags: c.tags, updatedBy: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => { });
   }
 
@@ -1910,7 +1916,7 @@ function tmplSaveForm() {
     if (idx !== -1) disparoTemplates[idx] = { ...disparoTemplates[idx], name, body };
 
     if (typeof currentUser !== 'undefined' && currentUser) {
-      db.collection('users').doc(currentUser.uid).collection('disparo_templates').doc(_tmplEditId)
+      db.collection('users').doc(_ownerUid()).collection('disparo_templates').doc(_tmplEditId)
         .update({ name, body, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
         .then(() => _tmplAfterSave('Template atualizado!'))
         .catch(() => _tmplSaveError(btn));
@@ -1923,7 +1929,7 @@ function tmplSaveForm() {
     const tmpl = { name, body };
 
     if (typeof currentUser !== 'undefined' && currentUser) {
-      db.collection('users').doc(currentUser.uid).collection('disparo_templates').add({
+      db.collection('users').doc(_ownerUid()).collection('disparo_templates').add({
         ...tmpl,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1961,7 +1967,7 @@ function tmplDelete(id) {
   if (!confirm('Excluir este template?')) return;
 
   if (typeof currentUser !== 'undefined' && currentUser) {
-    db.collection('users').doc(currentUser.uid).collection('disparo_templates').doc(id)
+    db.collection('users').doc(_ownerUid()).collection('disparo_templates').doc(id)
       .delete().catch(() => { });
   }
 
@@ -2873,7 +2879,7 @@ function planModalSave() {
   const isNewAcquisition = !c || !c.subscription ||
     c.subscription.status === 'canceled' || c.subscription.status === 'expired';
 
-  planSave(currentUser.uid, _planModalClientId, planData, currentUser.uid, isNewAcquisition)
+  planSave(_ownerUid(), _planModalClientId, planData, currentUser.uid, isNewAcquisition)
     .then(() => {
       planModalClose();
       if (typeof clientesRenderTable       === 'function') clientesRenderTable();
@@ -2897,7 +2903,7 @@ async function planCancelConfirm() {
   const cancelBtn = document.getElementById('plan-cancel-btn');
   if (cancelBtn) cancelBtn.disabled = true;
 
-  planCancel(currentUser.uid, _planModalClientId, currentUser.uid)
+  planCancel(_ownerUid(), _planModalClientId, currentUser.uid)
     .then(() => {
       planModalClose();
       if (typeof clientesRenderTable       === 'function') clientesRenderTable();
@@ -2909,7 +2915,7 @@ async function planCancelConfirm() {
 
 function planUseCreditUI(clientId) {
   if (!currentUser) return;
-  useCredit(currentUser.uid, clientId, currentUser.uid)
+  useCredit(_ownerUid(), clientId, currentUser.uid)
     .then(({ ok, remaining, limitReached }) => {
       if (!ok) {
         if (typeof disparoShowToast === 'function') disparoShowToast('Limite do plano já atingido!', true);
@@ -2935,7 +2941,7 @@ async function planResetCycleUI(clientId) {
   const ok = await orbitConfirm(`Você vai registrar o pagamento e iniciar um novo ciclo de 30 dias para "${c.name}". Prosseguir?`, false, 'Renovar Plano', 'Renovar Plano');
   if (!ok) return;
 
-  planResetCycle(currentUser.uid, clientId, currentUser.uid)
+  planResetCycle(_ownerUid(), clientId, currentUser.uid)
     .then(() => {
       if (typeof clientesRenderTable       === 'function') clientesRenderTable();
       if (typeof planRenderBillingDashboard === 'function') planRenderBillingDashboard();
@@ -3967,14 +3973,8 @@ function schedSaveBooking() {
           const _used = _sub.usedCredits  || 0;
           const _tot  = _sub.totalCredits || 1;
           if (_used >= _tot) {
-            if (typeof orbitAlert === 'function') {
-              orbitAlert(
-                'Os créditos deste ciclo já foram todos utilizados!\n' +
-                'O agendamento foi concluído mas o crédito não pôde ser descontado.\n' +
-                'Registre uma venda avulsa ou renove o plano do cliente.',
-                'Limite Atingido'
-              );
-            }
+            /* Créditos esgotados → registra como venda avulsa automaticamente */
+            schedOpenGovModal(finalCustomerId, date, clientName);
           } else {
             planUseCreditUI(finalCustomerId);
             /* Marca o agendamento como crédito descontado (evita duplo desconto) */
@@ -4288,6 +4288,14 @@ window.addEventListener('load', () => {
 /* ─── Estado ──────────────────────────────────────────────────── */
 let managedTenants = [];   /* [{ uid, name, avatar? }] */
 let activeTenantUid = null; /* null = conta própria */
+
+/* Retorna o UID do dono dos dados: tenant ativo (membro de equipe)
+   ou a conta própria. Usar em TODOS os caminhos de leitura/escrita. */
+function _ownerUid() {
+  if (typeof activeTenantUid !== 'undefined' && activeTenantUid) return activeTenantUid;
+  if (typeof currentUser     !== 'undefined' && currentUser)     return currentUser.uid;
+  return null;
+}
 let activeTenantName = null;
 
 /* ─── Abrir / fechar dropdown ─────────────────────────────────── */
@@ -4335,7 +4343,7 @@ function renderTenantDropdown() {
         <div class="tenant-item-icon">${t.avatar ? `<img src="${_esc(t.avatar)}" alt="${_esc(t.name)}" />` : `<span style="font-size:.7rem;font-weight:700;">${initials}</span>`}</div>
         <div class="tenant-item-info">
           <div class="tenant-item-name">${_esc(t.name)}</div>
-          <div class="tenant-item-sub">Cliente</div>
+          <div class="tenant-item-sub">${t._isTeam ? 'Minha equipe' : 'Cliente'}</div>
         </div>
         ${isActive ? '<i class="ph ph-check tenant-item-check"></i>' : ''}
       </button>`;
@@ -4378,33 +4386,67 @@ function switchTenant(uid, name) {
   const targetUid = uid || (currentUser ? currentUser.uid : null);
   if (!targetUid) return;
 
-  /* Reset e recarga do módulo de Agendamentos */
+  /* Reset e recarga — Agendamentos */
   schedBookings = []; schedServices = []; schedDays = {};
   schedRenderCalendar();
   schedRenderServices();
   loadSchedDataFromFirestore(targetUid);
+
+  /* Reset e recarga — CRM / Disparo / Clientes / Dashboard */
+  if (typeof disparoContacts !== 'undefined') disparoContacts = [];
+  if (typeof crmLoadCustomers === 'function')                     crmLoadCustomers(targetUid);
+  if (typeof loadDisparoTemplatesFromFirestore === 'function')    loadDisparoTemplatesFromFirestore(targetUid);
+  if (typeof planTemplatesLoad === 'function')                    planTemplatesLoad(targetUid);
+
+  /* Reset e recarga — Kanban */
+  if (typeof kbStartSync      === 'function') kbStartSync();
+  if (typeof kbListenActivity === 'function') kbListenActivity();
 
   renderTenantDropdown();
 }
 
 /* ─── Carregar tenants do Firestore ───────────────────────────── */
 function loadManagedTenants(uid) {
-  db.collection('users').doc(uid).get()
-    .then(snap => {
-      const data = snap.exists ? snap.data() : {};
-      managedTenants = data.managedTenants || [];
+  const userEmail = typeof currentUser !== 'undefined' && currentUser ? currentUser.email : null;
 
-      const switcher = document.getElementById('tenant-switcher');
-      if (switcher) switcher.hidden = false;
+  // Carrega tenants gerenciados pelo dono + equipes das quais o usuário é membro
+  const p1 = db.collection('users').doc(uid).get();
+  const p2 = userEmail
+    ? db.collection('teamByEmail').doc(userEmail).get().catch(() => null)
+    : Promise.resolve(null);
 
-      /* Atualiza nome próprio no botão */
-      const nameEl = document.getElementById('tenant-switcher-name');
-      if (nameEl && !activeTenantUid) {
-        nameEl.textContent = document.getElementById('auth-user-name')?.textContent || 'Minha conta';
-      }
+  Promise.all([p1, p2]).then(([snap, teamSnap]) => {
+    const data = snap.exists ? snap.data() : {};
+    managedTenants = data.managedTenants || [];
 
-      renderTenantDropdown();
-    });
+    // Injeta donos da equipe (se o usuário for membro de alguém)
+    let teamTenants = [];
+    if (teamSnap && teamSnap.exists) {
+      const teamOwners = teamSnap.data().owners || [];
+      teamOwners.forEach(owner => {
+        if (!managedTenants.some(t => t.uid === owner.uid)) {
+          const t = { uid: owner.uid, name: owner.name, _isTeam: true };
+          managedTenants.push(t);
+          teamTenants.push(t);
+        }
+      });
+    }
+
+    const switcher = document.getElementById('tenant-switcher');
+    if (switcher) switcher.hidden = false;
+
+    const nameEl = document.getElementById('tenant-switcher-name');
+    if (nameEl && !activeTenantUid) {
+      nameEl.textContent = document.getElementById('auth-user-name')?.textContent || 'Minha conta';
+    }
+
+    renderTenantDropdown();
+
+    // Membro de equipe: troca automaticamente para a conta do dono ao logar
+    if (teamTenants.length > 0 && !activeTenantUid && managedTenants.filter(t => !t._isTeam).length === 0) {
+      switchTenant(teamTenants[0].uid, teamTenants[0].name);
+    }
+  });
 }
 
 /* ─── Modal de gerenciar tenants ──────────────────────────────── */
